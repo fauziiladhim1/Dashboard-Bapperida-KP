@@ -82,7 +82,7 @@ Coverage API kembali 100% dengan tiga tes baru: registrasi dengan password yang 
 |---|---|---|
 | D1 | **Terbuka, butuh data** | Persentase penduduk miskin perlu jumlah penduduk per kalurahan (BPS/Dukcapil). Tabel itu belum ada di database. |
 | D2 | **Terbuka, butuh data** | Satuan data 2024 (KK atau jiwa) harus dipastikan ke Dinsos sebelum dikonversi. Heuristik `incomparableYears` tetap dipakai sampai ada kepastian. |
-| D3 | **Selesai** | KPI jalan sekarang **kemantapan jalan**: % km Baik + Sedang dari km tersurvei, langsung dari km per kondisi di tabel survei `ruas_jalan`. Survei 2025 = 71,0%. Pembanding = selisih poin persen dari survei sebelumnya. Km rusak berat dan jumlah ruas tersurvei jadi keterangan. |
+| D3 | **Selesai** | KPI jalan dihitung dalam **km** dari tabel survei `ruas_jalan`, bukan jumlah ruas. Atas permintaan pengguna, angka utama = **km rusak berat**; pembanding = selisih km dari survei sebelumnya. Kemantapan jalan (% km Baik + Sedang, survei 2025 = 71,0%) dan jumlah ruas tersurvei ada di keterangan. |
 | D4 | **Selesai untuk KPI** | Angka utama tidak lagi bergantung pada ambang 20%. Ambang itu masih dipakai untuk warna ruas di peta dan rincian kelas per ruas di kartu jalan; dasar ambangnya tetap perlu dikonfirmasi ke Dinas PU. |
 | D5 | **Selesai (label)** | Kartu diganti jadi "Wilayah kelas bahaya tinggi", dengan catatan bahwa angkanya luas kelas bahaya InaRISK, bukan risiko. Jiwa terpapar belum ditambahkan karena datanya belum ada. |
 

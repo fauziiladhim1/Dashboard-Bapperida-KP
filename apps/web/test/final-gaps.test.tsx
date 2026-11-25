@@ -90,25 +90,26 @@ describe('Ringkasan: kecamatan, tanpa ruas rusak, selisih nol & turun', () => {
       now,
     ],
   });
-  const roadCard = () => screen.getByRole('link', { name: 'Kemantapan jalan kabupaten' }).closest<HTMLElement>('.card')!;
+  const roadCard = () => screen.getByRole('link', { name: 'Jalan kabupaten rusak berat' }).closest<HTMLElement>('.card')!;
 
   it('kalurahan teratas di kecamatan terpilih; rusak berat turun; PJU tanpa selisih', async () => {
     setup([{ key: 'Baik', count: 3, lengthKm: 9, areaHa: 0 }]);
     renderAt('/?kec=Wates');
     expect(await screen.findByText('Bendungan', {}, { timeout: 10000 })).toBeInTheDocument();
     expect(screen.getByText(/kalurahan/i, { selector: 'p' })).toBeInTheDocument();
-    // Kemantapan = km baik+sedang / km tersurvei (tabel survei): 2026 100%, 2025 50%.
-    expect(await within(roadCard()).findByText(/^\+50 poin dibanding 2025/)).toBeInTheDocument();
-    expect(within(roadCard()).getByText('100% mantap')).toBeInTheDocument();
+    // Km rusak berat dari tabel survei: 2026 = 0 km, 2025 = 1 km; kemantapan 100% di keterangan.
+    expect(await within(roadCard()).findByText(/^-1 km dibanding 2025/)).toBeInTheDocument();
+    expect(within(roadCard()).getByText('0 km')).toBeInTheDocument();
+    expect(within(roadCard()).getByText(/^Kemantapan 100% \(baik \+ sedang\)/)).toBeInTheDocument();
     const pju = screen.getByRole('link', { name: 'Titik penerangan jalan umum' }).closest<HTMLElement>('.card')!;
     expect(within(pju).queryByText(/dibanding/)).not.toBeInTheDocument();
   });
 
   it('belum ada ruas tersurvei', async () => {
-    // Survei 2026 lebih buruk (1 dari 4 km baik = 25%) dari 2025 (50%): kemantapan turun 25 poin.
+    // Survei 2026 lebih buruk: 3 km rusak berat dari 1 km (2025), naik 2 km.
     setup([{ key: 'Belum Disurvei', count: 3, lengthKm: 9, areaHa: 0 }], { ...SURVEY_2026, rusakBerat: 3 });
     renderAt('/');
-    await waitFor(() => expect(within(roadCard()).getByText(/^-25 poin dibanding 2025/)).toBeInTheDocument(), { timeout: 10000 });
+    await waitFor(() => expect(within(roadCard()).getByText(/^\+2 km dibanding 2025/)).toBeInTheDocument(), { timeout: 10000 });
     // Porsi belum disurvei dari seluruh ruas SK ikut tampil.
     await waitFor(() => expect(within(roadCard()).getByRole('button', { name: /^Belum Disurvei3100%$/ })).toBeInTheDocument(), { timeout: 10000 });
     expect(within(roadCard()).getByText(/0 dari 3 ruas disurvei\./)).toBeInTheDocument();

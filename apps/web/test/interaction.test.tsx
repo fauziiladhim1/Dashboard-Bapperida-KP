@@ -23,7 +23,7 @@ describe('interaksi Ringkasan', () => {
   it('kondisi jalan: sorot & sembunyikan kelas; peta mini tanpa chip', async () => {
     mockApi({ 'GET /auth/me': { user: user('viewer') }, 'GET /layers': LAYERS, ...STATS });
     renderAt('/');
-    await screen.findByText('Kemantapan jalan kabupaten', {}, { timeout: 12000 }); // muat pertama: chunk Ringkasan di-transform
+    await screen.findByText('Jalan kabupaten rusak berat', {}, { timeout: 12000 }); // muat pertama: chunk Ringkasan di-transform
 
     // Sorot kelas lewat batang atau daftar kelas: kelas lain diredupkan.
     const berat = await screen.findByRole('button', { name: /^Rusak Berat/ });

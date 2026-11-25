@@ -80,10 +80,10 @@ describe('Ringkasan', () => {
     expect(screen.getByText(/3 dari 3 ruas disurvei\./)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Wilayah kelas bahaya tinggi' })).toHaveAttribute('href', '/peta?layer=potensi-bencana');
     expect(screen.getByRole('link', { name: 'Peta wilayah' })).toHaveAttribute('href', '/peta');
-    // KPI kemantapan jalan (km baik+sedang / km tersurvei) di kolom kanan atas; wisata tidak lagi jadi KPI.
-    const roadKpi = screen.getByRole('link', { name: 'Kemantapan jalan kabupaten' });
+    // KPI km jalan rusak berat (tabel survei) di kolom kanan atas; wisata tidak lagi jadi KPI.
+    const roadKpi = screen.getByRole('link', { name: 'Jalan kabupaten rusak berat' });
     expect(roadKpi).toHaveAttribute('href', '/peta?layer=jalan-kabupaten&tahun=2026');
-    expect(within(roadKpi.closest<HTMLElement>('.card')!).getByText('62% mantap')).toBeInTheDocument();
+    expect(within(roadKpi.closest<HTMLElement>('.card')!).getByText('0,7 km')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Destinasi pariwisata' })).not.toBeInTheDocument();
     expect(screen.queryByRole('meter')).not.toBeInTheDocument(); // PJU tanpa garis progres
     expect(screen.getByTestId('spark')).toBeInTheDocument(); // tren kemiskinan di KPI
@@ -194,7 +194,7 @@ describe('Ringkasan', () => {
       'GET /stats/layers/pju': [{ key: null, count: 3, lengthKm: 0, areaHa: 0 }] });
     renderAt('/');
     // Km rusak berat dari tabel survei (0,71 km), bukan panjang ruas SK yang berkelas Rusak Berat (4,5 km).
-    expect(await screen.findByText('Baik + sedang dari 5 km tersurvei 2025; 0,7 km rusak berat. 1 dari 1 ruas disurvei.', {}, { timeout: 10000 })).toBeInTheDocument();
+    expect(await screen.findByText('Kemantapan 62% (baik + sedang) dari 5 km tersurvei 2025. 1 dari 1 ruas disurvei.', {}, { timeout: 10000 })).toBeInTheDocument();
     expect(screen.getByText('Tanpa Kelas')).toBeInTheDocument(); // PJU tanpa jenis lampu
   });
 
