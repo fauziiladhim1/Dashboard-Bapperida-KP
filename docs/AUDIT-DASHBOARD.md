@@ -76,6 +76,16 @@ Coverage API kembali 100% dengan tiga tes baru: registrasi dengan password yang 
 
 **Cek 2026-11-21.** Coverage web kembali 100% (200 tes) lewat tiga berkas tes baru: `test/hazard.test.tsx`, `test/overview-gaps.test.tsx`, dan `test/final-gaps.test.tsx`. Cabang yang tidak mungkin tercapai dihapus, bukan dibuatkan tes: properti `where` di `VectorLayers` (tidak pernah diisi), cabang legenda tanpa `onHidden`, guard `matchMedia` di `PolaRuang`, dan fallback `|| undefined` untuk Tahun data (isiannya wajib). Tes yang gagal acak saat suite penuh disebabkan batas `findBy` 1 detik; batas itu dinaikkan ke 5 detik di `test/setup.tsx`. Mode "Ganti semua" pada unggah SHP sudah dicoba di browser pada layer uji (fitur lama terhapus, tahun data ikut berubah), lalu layer uji dihapus.
 
+## 5c. Cek 2026-11-25: status D1–D5
+
+| No | Status | Catatan |
+|---|---|---|
+| D1 | **Terbuka, butuh data** | Persentase penduduk miskin perlu jumlah penduduk per kalurahan (BPS/Dukcapil). Tabel itu belum ada di database. |
+| D2 | **Terbuka, butuh data** | Satuan data 2024 (KK atau jiwa) harus dipastikan ke Dinsos sebelum dikonversi. Heuristik `incomparableYears` tetap dipakai sampai ada kepastian. |
+| D3 | **Selesai** | KPI jalan sekarang **kemantapan jalan**: % km Baik + Sedang dari km tersurvei, langsung dari km per kondisi di tabel survei `ruas_jalan`. Survei 2025 = 71,0%. Pembanding = selisih poin persen dari survei sebelumnya. Km rusak berat dan jumlah ruas tersurvei jadi keterangan. |
+| D4 | **Selesai untuk KPI** | Angka utama tidak lagi bergantung pada ambang 20%. Ambang itu masih dipakai untuk warna ruas di peta dan rincian kelas per ruas di kartu jalan; dasar ambangnya tetap perlu dikonfirmasi ke Dinas PU. |
+| D5 | **Selesai (label)** | Kartu diganti jadi "Wilayah kelas bahaya tinggi", dengan catatan bahwa angkanya luas kelas bahaya InaRISK, bukan risiko. Jiwa terpapar belum ditambahkan karena datanya belum ada. |
+
 ## 5b. Keamanan dan infrastruktur
 
 | Aspek | Kondisi | Keputusan |

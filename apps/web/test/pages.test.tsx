@@ -77,13 +77,13 @@ describe('Ringkasan', () => {
     renderAt('/');
     // Kondisi jalan: jumlah ruas SK per kelas (kelas dari tabel survei lewat nama ruas): 1 dari 3 ruas rusak berat, 10 km SK.
     expect(await screen.findByRole('button', { name: /^Rusak Berat133%$/ }, { timeout: 10000 })).toBeInTheDocument();
-    expect(screen.getByText(/3 dari 3 ruas disurvei \(100%\)/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Potensi bencana tinggi' })).toHaveAttribute('href', '/peta?layer=potensi-bencana');
+    expect(screen.getByText(/3 dari 3 ruas disurvei\./)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Wilayah kelas bahaya tinggi' })).toHaveAttribute('href', '/peta?layer=potensi-bencana');
     expect(screen.getByRole('link', { name: 'Peta wilayah' })).toHaveAttribute('href', '/peta');
-    // KPI ruas rusak berat di kolom kanan atas (paling bisa ditindaklanjuti); wisata tidak lagi jadi KPI.
-    const roadKpi = screen.getByRole('link', { name: 'Kondisi jalan kabupaten' });
+    // KPI kemantapan jalan (km baik+sedang / km tersurvei) di kolom kanan atas; wisata tidak lagi jadi KPI.
+    const roadKpi = screen.getByRole('link', { name: 'Kemantapan jalan kabupaten' });
     expect(roadKpi).toHaveAttribute('href', '/peta?layer=jalan-kabupaten&tahun=2026');
-    expect(within(roadKpi.closest<HTMLElement>('.card')!).getByText('1 ruas rusak berat')).toBeInTheDocument();
+    expect(within(roadKpi.closest<HTMLElement>('.card')!).getByText('62% mantap')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Destinasi pariwisata' })).not.toBeInTheDocument();
     expect(screen.queryByRole('meter')).not.toBeInTheDocument(); // PJU tanpa garis progres
     expect(screen.getByTestId('spark')).toBeInTheDocument(); // tren kemiskinan di KPI
@@ -188,13 +188,13 @@ describe('Ringkasan', () => {
     expect(screen.getByRole('button', { name: /^Rusak Berat/ })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('KPI ruas rusak berat: km resmi SK + porsi tersurvei; PJU tanpa jenis lampu', async () => {
+  it('KPI kemantapan: km dari tabel survei (bukan kelas ruas) + porsi ruas tersurvei; PJU tanpa jenis lampu', async () => {
     mockApi({ 'GET /auth/me': { user: user('viewer') }, 'GET /layers': LAYERS, ...STATS,
       'GET /stats/layers/jalan-kabupaten': [{ key: 'Rusak Berat', count: 1, lengthKm: 3, areaHa: 0, value: 4.5 }],
       'GET /stats/layers/pju': [{ key: null, count: 3, lengthKm: 0, areaHa: 0 }] });
     renderAt('/');
-    // Panjang = atribut panjang_km (`value`), bukan panjang geometri.
-    expect(await screen.findByText('4,5 km rusak berat, 1 dari 1 ruas disurvei (100%)', {}, { timeout: 10000 })).toBeInTheDocument();
+    // Km rusak berat dari tabel survei (0,71 km), bukan panjang ruas SK yang berkelas Rusak Berat (4,5 km).
+    expect(await screen.findByText('Baik + sedang dari 5 km tersurvei 2025; 0,7 km rusak berat. 1 dari 1 ruas disurvei.', {}, { timeout: 10000 })).toBeInTheDocument();
     expect(screen.getByText('Tanpa Kelas')).toBeInTheDocument(); // PJU tanpa jenis lampu
   });
 

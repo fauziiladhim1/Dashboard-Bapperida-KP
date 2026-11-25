@@ -74,7 +74,8 @@ describe('Peta & peta mini', () => {
 
 describe('Ringkasan: kecamatan, tanpa ruas rusak, selisih nol & turun', () => {
   const miskin = { ...LAYERS[0]!, id: 50, slug: 'penduduk-miskin', name: 'Penduduk Miskin', category: 'Sosial', year: null } as Layer;
-  const setup = (jalanNow: unknown[]) => mockApi({
+  const SURVEY_2026 = { kecamatan: 'Wates', wilayah: 'W', tahun: 2026, ruas: 'Ruas X', baik: 1, sedang: 0, rusakRingan: 0, rusakBerat: 0, perbaikan: 0 };
+  const setup = (jalanNow: unknown[], now: object = SURVEY_2026) => mockApi({
     'GET /auth/me': { user: user('viewer') }, 'GET /stats/kecamatan': ['Wates'],
     'GET /layers': [...LAYERS.map((l) => (l.slug === 'pju' ? { ...l, name: 'PJU 2026', year: 2026 } : l)), miskin],
     'GET /stats/timeseries': [
@@ -86,27 +87,30 @@ describe('Ringkasan: kecamatan, tanpa ruas rusak, selisih nol & turun', () => {
     'GET /stats/layers/pju': [{ key: 'LED', count: 12, lengthKm: 0, areaHa: 0 }],
     'GET /stats/ruas-jalan': [
       { kecamatan: 'Wates', wilayah: 'W', tahun: 2025, ruas: 'Lama', baik: 1, sedang: 0, rusakRingan: 0, rusakBerat: 1, perbaikan: 0 },
-      { kecamatan: 'Wates', wilayah: 'W', tahun: 2026, ruas: 'Ruas X', baik: 1, sedang: 0, rusakRingan: 0, rusakBerat: 0, perbaikan: 0 },
+      now,
     ],
   });
-  const roadCard = () => screen.getByRole('link', { name: 'Kondisi jalan kabupaten' }).closest<HTMLElement>('.card')!;
+  const roadCard = () => screen.getByRole('link', { name: 'Kemantapan jalan kabupaten' }).closest<HTMLElement>('.card')!;
 
   it('kalurahan teratas di kecamatan terpilih; rusak berat turun; PJU tanpa selisih', async () => {
     setup([{ key: 'Baik', count: 3, lengthKm: 9, areaHa: 0 }]);
     renderAt('/?kec=Wates');
     expect(await screen.findByText('Bendungan', {}, { timeout: 10000 })).toBeInTheDocument();
     expect(screen.getByText(/kalurahan/i, { selector: 'p' })).toBeInTheDocument();
-    expect(await within(roadCard()).findByText(/^-2 dibanding 2025/)).toBeInTheDocument();
-    expect(within(roadCard()).getByText('0 ruas rusak berat')).toBeInTheDocument();
+    // Kemantapan = km baik+sedang / km tersurvei (tabel survei): 2026 100%, 2025 50%.
+    expect(await within(roadCard()).findByText(/^\+50 poin dibanding 2025/)).toBeInTheDocument();
+    expect(within(roadCard()).getByText('100% mantap')).toBeInTheDocument();
     const pju = screen.getByRole('link', { name: 'Titik penerangan jalan umum' }).closest<HTMLElement>('.card')!;
     expect(within(pju).queryByText(/dibanding/)).not.toBeInTheDocument();
   });
 
   it('belum ada ruas tersurvei', async () => {
-    setup([{ key: 'Belum Disurvei', count: 3, lengthKm: 9, areaHa: 0 }]);
+    // Survei 2026 lebih buruk (1 dari 4 km baik = 25%) dari 2025 (50%): kemantapan turun 25 poin.
+    setup([{ key: 'Belum Disurvei', count: 3, lengthKm: 9, areaHa: 0 }], { ...SURVEY_2026, rusakBerat: 3 });
     renderAt('/');
+    await waitFor(() => expect(within(roadCard()).getByText(/^-25 poin dibanding 2025/)).toBeInTheDocument(), { timeout: 10000 });
     // Porsi belum disurvei dari seluruh ruas SK ikut tampil.
     await waitFor(() => expect(within(roadCard()).getByRole('button', { name: /^Belum Disurvei3100%$/ })).toBeInTheDocument(), { timeout: 10000 });
-    expect(within(roadCard()).getByText(/0 dari 3 ruas disurvei \(0%\)/)).toBeInTheDocument();
+    expect(within(roadCard()).getByText(/0 dari 3 ruas disurvei\./)).toBeInTheDocument();
   });
 });

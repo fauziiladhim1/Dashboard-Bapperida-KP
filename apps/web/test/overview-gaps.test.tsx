@@ -305,9 +305,10 @@ describe('Ringkasan: kemiskinan per wilayah, pembanding survei & layer', () => {
     expect(await screen.findByText('Sentolo', {}, { timeout: 10000 })).toBeInTheDocument();
     expect(screen.getByText(/-500 jiwa \(-\d+%\) dibanding 2025/)).toBeInTheDocument();
     expect(screen.getAllByText(/2024/).length).toBeGreaterThan(0);
-    const road = screen.getByRole('link', { name: 'Kondisi jalan kabupaten' }).closest<HTMLElement>('.card')!;
+    const road = screen.getByRole('link', { name: 'Kemantapan jalan kabupaten' }).closest<HTMLElement>('.card')!;
     expect(within(road).getByRole('button', { name: /^Rusak Berat360%$/ })).toBeInTheDocument();
-    expect(await within(road).findByText(/\+2 dibanding 2024/)).toBeInTheDocument();
+    expect(within(road).getByText('56% mantap')).toBeInTheDocument();
+    expect(await within(road).findByText(/\+6 poin dibanding 2024/)).toBeInTheDocument();
     const pju = screen.getByRole('link', { name: 'Titik penerangan jalan umum' }).closest<HTMLElement>('.card')!;
     expect(within(pju).getByText(/\+3 dibanding 2025/)).toBeInTheDocument();
   });

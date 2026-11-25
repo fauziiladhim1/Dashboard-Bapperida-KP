@@ -119,15 +119,20 @@ export default function OverviewPage() {
   const ruasYear = Math.max(...(ruas.data ?? []).map((r) => r.tahun));
   const unmatched = (ruas.data ?? []).filter((r) => r.tahun === ruasYear && r.matched === false).length;
 
-  // KPI ruas rusak berat (definisi sama dengan kartu Kondisi Jalan): pembanding = survei sebelumnya, dihitung API dengan
-  // aturan yang sama (`tahun` = tahun survei itu), bukan km survei mentah, agar satuan & definisinya tetap satu.
+  // KPI jalan = kemantapan jalan (indikator PUPR): % panjang Baik + Sedang dari panjang tersurvei, langsung dari km per
+  // kondisi tabel survei (audit D3). Tanpa reklasifikasi ruas berambang 20% (audit D4); ambang itu hanya untuk warna
+  // ruas di peta & rincian kelas. Pembanding = survei sebelumnya dengan rumus sama (selisih poin persen).
   const prevSurvey = Math.max(...(ruas.data ?? []).map((r) => r.tahun).filter((y) => y < ruasYear));
-  const jalanPrevQ = useStats('jalan-kabupaten', kec, on('jalan-kabupaten') && Number.isFinite(prevSurvey), { by: 'kondisi', sum: 'panjang_km', tahun: prevSurvey });
-  const RB = 'Rusak Berat';
-  const roadBad = jalan ? sum(jalan, 'count', RB) : null;
+  const mantapOf = (year: number) => {
+    const rows = (ruas.data ?? []).filter((r) => r.tahun === year);
+    const km = (f: (r: (typeof rows)[number]) => number) => rows.reduce((s, r) => s + f(r), 0);
+    const total = km((r) => r.baik + r.sedang + r.rusakRingan + r.rusakBerat);
+    return total ? { pct: (100 * km((r) => r.baik + r.sedang)) / total, total, rusakBerat: km((r) => r.rusakBerat) } : null;
+  };
+  const mantap = mantapOf(ruasYear);
+  const mantapPrev = mantapOf(prevSurvey);
+  const roadDiff = mantap && mantapPrev ? Math.round(mantap.pct - mantapPrev.pct) : null;
   const roadSurveyed = sum(jalan, 'count') - sum(jalan, 'count', 'Belum Disurvei');
-  const roadBadKm = (jalan ?? []).filter((r) => r.key === RB).reduce((s, r) => s + (r.value ?? r.lengthKm), 0);
-  const roadDiff = roadBad !== null && jalanPrevQ.data ? roadBad - sum(jalanPrevQ.data, 'count', RB) : null;
 
   // Pembanding tahunan layer bertahun (mis. PJU 2025 → 2026) dari deret `layers` timeseries; kunci = nama tanpa tahun
   // (sama dengan SQL timeseries). Layer statis: tanpa pembanding, bukan angka karangan.
@@ -166,10 +171,10 @@ export default function OverviewPage() {
     ) },
     { key: 'road', label: t('ov.kpiRoad'), span: 4, node: (
       <div ref={kpiRow} className="h-full">
-      <Kpi tone="bad" icon={TriangleExclamation} label={t('ov.kpiRoad')} value={roadBad} format={(n) => t('ov.segmentsBad', { n: fmt(n) })}
-          loading={allLayers.isPending || jalanQ.loading} to={peta('jalan-kabupaten')}
-          sub={jalan ? t('ov.kpiRoadSub', { km: fmt(Math.round(roadBadKm * 10) / 10), n: fmt(roadSurveyed), total: fmt(sum(jalan, 'count')), pct: pct(roadSurveyed, sum(jalan, 'count')) }) : undefined}
-          delta={roadDiff ? { text: t('ov.kpiYoY', { delta: signedN(roadDiff), tahun: prevSurvey }), up: roadDiff > 0, bad: roadDiff > 0 } : undefined}>
+      <Kpi icon={TriangleExclamation} label={t('ov.kpiRoad')} value={mantap && Math.round(mantap.pct)} format={(n) => t('ov.mantap', { pct: fmt(n) })}
+          loading={allLayers.isPending || jalanQ.loading || ruas.isLoading} to={peta('jalan-kabupaten')}
+          sub={mantap && jalan ? t('ov.kpiRoadSub', { km: fmt(Math.round(mantap.rusakBerat * 10) / 10), surveyKm: fmt(Math.round(mantap.total)), n: fmt(roadSurveyed), total: fmt(sum(jalan, 'count')), tahun: ruasYear }) : undefined}
+          delta={roadDiff ? { text: t('ov.kpiYoY', { delta: t('ov.pp', { n: signedN(roadDiff) }), tahun: prevSurvey }), up: roadDiff > 0, bad: roadDiff < 0 } : undefined}>
           {/* Rincian per kelas (termasuk belum disurvei, porsi dari seluruh ruas SK); klik kelas = saring peta mini. */}
           <RoadOverview network={jalan} layer={bySlug('jalan-kabupaten')} unmatched={unmatched} hiddenKelas={roadHidden} onHiddenKelas={setRoadHidden} />
         </Kpi>

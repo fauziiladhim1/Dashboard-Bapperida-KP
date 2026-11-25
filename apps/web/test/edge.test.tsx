@@ -114,7 +114,7 @@ describe('kasus tepi 2', () => {
       'GET /features/9': { status: 500, body: { error: 'x' }, __reply: true },
     });
     renderAt('/');
-    await screen.findByText('Kondisi jalan kabupaten', {}, { timeout: 5000 });
+    await screen.findByText('Kemantapan jalan kabupaten', {}, { timeout: 5000 });
     expect(screen.queryByRole('radio', { name: 'Per ruas' })).not.toBeInTheDocument(); // tanpa data: tak ada pengalih grafik
 
     window.history.pushState({}, '', '/peta');
