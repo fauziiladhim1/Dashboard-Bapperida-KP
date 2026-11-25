@@ -77,7 +77,7 @@ describe('Ringkasan', () => {
     renderAt('/');
     // Kondisi jalan: jumlah ruas SK per kelas (kelas dari tabel survei lewat nama ruas): 1 dari 3 ruas rusak berat, 10 km SK.
     expect(await screen.findByRole('button', { name: /^Rusak Berat133%$/ }, { timeout: 10000 })).toBeInTheDocument();
-    expect(screen.getByText(/3 dari 3 ruas disurvei\./)).toBeInTheDocument();
+    expect(screen.getByText(/3 dari 3 ruas$/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Wilayah kelas bahaya tinggi' })).toHaveAttribute('href', '/peta?layer=potensi-bencana');
     expect(screen.getByRole('link', { name: 'Peta wilayah' })).toHaveAttribute('href', '/peta');
     // KPI km jalan rusak berat (tabel survei) di kolom kanan atas; wisata tidak lagi jadi KPI.
@@ -194,7 +194,7 @@ describe('Ringkasan', () => {
       'GET /stats/layers/pju': [{ key: null, count: 3, lengthKm: 0, areaHa: 0 }] });
     renderAt('/');
     // Km rusak berat dari tabel survei (0,71 km), bukan panjang ruas SK yang berkelas Rusak Berat (4,5 km).
-    expect(await screen.findByText('Kemantapan 62% (baik + sedang) dari 5 km tersurvei 2025. 1 dari 1 ruas disurvei.', {}, { timeout: 10000 })).toBeInTheDocument();
+    expect(await screen.findByText('Kemantapan 62% · 5 km disurvei 2025 · 1 dari 1 ruas', {}, { timeout: 10000 })).toBeInTheDocument();
     expect(screen.getByText('Tanpa Kelas')).toBeInTheDocument(); // PJU tanpa jenis lampu
   });
 
