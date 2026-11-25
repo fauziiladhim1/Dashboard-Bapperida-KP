@@ -1,0 +1,49 @@
+name: sipwil
+
+services:
+  db:
+    image: postgis/postgis:17-3.5-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports: ["127.0.0.1:${DB_PORT:-5433}:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: { context: ., dockerfile: docker/api.Dockerfile }
+    restart: unless-stopped
+    profiles: [prod]
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      UPLOAD_DIR: /data/uploads
+      # Jumlah proxy di depan API. Default 1 = hanya nginx container. Pakai 2 hanya bila ada proxy TLS di depan
+      # (Kominfo/Caddy host): nilai lebih besar dari jumlah proxy sebenarnya membuat X-Forwarded-For palsu dari
+      # klien dipercaya, sehingga limit login per IP bisa dilewati.
+      TRUST_PROXY: ${PROD_TRUST_PROXY:-1}
+    volumes: [uploads:/data/uploads]
+    depends_on: { db: { condition: service_healthy } }
+    # /health juga menguji koneksi DB; wget bawaan busybox di node:alpine.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/api/v1/health >/dev/null || exit 1"]
+      interval: 15s
+      retries: 5
+      start_period: 10s
+
+  web:
+    build: { context: ., dockerfile: docker/web.Dockerfile }
+    restart: unless-stopped
+    profiles: [prod]
+    ports: ["127.0.0.1:8080:80"]
+    depends_on: { api: { condition: service_healthy } }
+
+volumes:
+  pgdata:
+  uploads:

@@ -1,0 +1,6 @@
+# Halaman publik (masuk/daftar) boleh diindeks; data dashboard ada di balik login.
+# API dan berkas unggahan tidak untuk mesin pencari.
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /uploads/

@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+**/coverage
+**/uploads
+.env
+.env.*
+.git
+**/.qatmp_assets
+**/coverage-fork

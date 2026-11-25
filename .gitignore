@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+uploads/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+.vscode/
+.idea/
+apps/web/public/vendor/
+.qatmp_assets/
+coverage-fork/

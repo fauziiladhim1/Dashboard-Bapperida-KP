@@ -1,0 +1,663 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Palet (Nov 2026) mengikuti referensi "Property Management Dashboard": latar krem hangat #ecebe6, kartu putih bersudut 20px,
+ * teks hijau-arang #1d2420, aksen hijau tua #3f6650 (6.5:1 dgn teks putih), menu aktif arang, grafik pastel sage/pasir/tosca/lavender.
+ * Kontras terang: teks #5b625c 6.3:1 (putih) / 5.3:1 (latar); subtle #7a817b 4.0:1; tepi field #8f948f 3.1:1.
+ * Gelap: teks #b4bbb5 8.3:1, accent #8fbf9f 7.9:1 pada kartu #1c211e.
+ * Catatan lama di bawah berlaku untuk tata letak FreeDash.
+ *
+ * Tema HeroUI ditimpa dengan nilai CSS asli FreeDash-lite (adminmart.github.io/FreeDash-lite, style.min.css):
+ * latar #f9fbfd, kartu putih tanpa border dengan bayangan biru-abu, judul #1c2d41, font Rubik.
+ * ponytail: beberapa warna asli digelapkan agar kontras teks >= 4.5:1 (WCAG AA):
+ *   teks body #7c8798 (3.6:1) -> #5f6b7d (5.2:1); accent #5f76e8 (4.0:1 dgn teks putih) -> #5468dc (4.8:1);
+ *   gradien menu #8971ea->#5f76e8 -> #7560dc->#5468dc. Warna asli tetap dipakai untuk grafik/titik/ikon.
+ * Putaran kontras kedua: teks #5f6b7d -> #56637a (6.1:1); ikon subtle #9eabc0 (2.3:1) -> #7b879a (3.6:1);
+ *   tepi field #e9ecef (1.2:1) -> #8792a5 (3.1:1, WCAG 1.4.11 komponen UI). Gelap: subtle #8794ab (4.9:1).
+ */
+:root,
+.light {
+  --radius: 0.5rem;
+  --background: #ecebe6;
+  --foreground: #5b625c;
+  --heading: #1d2420;
+  --surface: #ffffff;
+  --surface-foreground: #5b625c;
+  --surface-secondary: #f5f4f0;
+  --surface-tertiary: #e6e4dd;
+  --overlay: #ffffff;
+  --muted: #5b625c;
+  --subtle: #7a817b;
+  --default: #f0efea;
+  --default-foreground: #1d2420;
+  --accent: #3f6650;
+  /* Teks aksen di atas latar aksen-lembut (toggle terpilih): 5.4:1, accent biasa hanya 3.9:1. */
+  --accent-text: #2f5040;
+  --accent-foreground: #ffffff;
+  --field-background: #ffffff;
+  --field-foreground: #1d2420;
+  --field-border: #8f948f;
+  --border-width-field: 1px;
+  --border: #e4e2db;
+  --separator: #e7e5df;
+  --focus: #3f6650;
+  --danger: #d9304f;
+  --success: #13875a;
+  --warning: #9a6a10;
+  --chart-1: #4c6b57;
+  --chart-2: #a3c9a8;
+  --chart-3: #e5d5ae;
+  --chart-4: #b9d6d8;
+  --chart-5: #b7bbdc;
+  --nav-link: #2b322e;
+  --nav-section: #1d2420;
+  --nav-gradient: linear-gradient(to right, #1f2421, #2b322e);
+  --row-hover: #f3f2ee;
+  /* Warna ikon KPI (berbeda per kartu), kontras >= 3.5:1 pada lingkaran 14% (WCAG 1.4.11 grafis: 3:1). */
+  color-scheme: light;
+}
+
+.dark {
+  --background: #141815;
+  --foreground: #b4bbb5;
+  --heading: #eef0ec;
+  --surface: #1c211e;
+  --surface-foreground: #b4bbb5;
+  --surface-secondary: #232925;
+  --surface-tertiary: #2b322d;
+  --overlay: #232925;
+  --muted: #b4bbb5;
+  --subtle: #8e968f;
+  --default: #262c28;
+  --default-foreground: #eef0ec;
+  --accent: #8fbf9f;
+  --accent-text: #a9d1b5;
+  --accent-foreground: #10160f;
+  --field-background: #1c211e;
+  --field-foreground: #eef0ec;
+  --field-border: rgb(255 255 255 / 0.28);
+  --border: rgb(255 255 255 / 0.07);
+  --separator: rgb(255 255 255 / 0.07);
+  --focus: #8fbf9f;
+  --danger: #ff7a93;
+  --success: #4ade9a;
+  --warning: #fdc16a;
+  --chart-1: #8fbf9f;
+  --chart-2: #a3c9a8;
+  --chart-3: #e5d5ae;
+  --chart-4: #b9d6d8;
+  --chart-5: #b7bbdc;
+  --nav-link: #b4bbb5;
+  --nav-section: #eef0ec;
+  --nav-gradient: linear-gradient(to right, #3f6650, #4c6b57);
+  --row-hover: rgb(255 255 255 / 0.04);
+  color-scheme: dark;
+}
+
+@theme inline {
+  /* Radius kontrol (tombol, field, chip) 10px; kartu 12px; modal 16px. */
+  --radius-control: 0.625rem;
+  --font-sans: "Rubik", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+  --color-heading: var(--heading);
+  --color-subtle: var(--subtle);
+  --color-nav-link: var(--nav-link);
+  --color-nav-section: var(--nav-section);
+  --color-row-hover: var(--row-hover);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --shadow-card: 0 1px 2px 0 rgb(29 36 32 / 0.04);
+  --shadow-card-hover: 0 8px 24px -8px rgb(29 36 32 / 0.16);
+  --shadow-nav: 0 6px 14px -4px rgb(29 36 32 / 0.28);
+  --shadow-float: 1px 1px 15px rgb(0 0 0 / 0.1);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-focus/50;
+  }
+  html {
+    @apply font-sans antialiased;
+  }
+  body {
+    /* overflow-x: clip, bukan hidden: `hidden` menjadikan body kontainer gulir sendiri saat menu/popover mengunci
+       gulir (html overflow:hidden), sehingga header sticky ikut tergulir dan hilang. `clip` memotong tanpa itu. */
+    @apply bg-background text-foreground overflow-x-clip text-sm;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-heading {
+    font-family: var(--font-heading);
+    color: var(--heading);
+    font-weight: 500;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--foreground) 18%, transparent);
+    border-radius: 9999px;
+  }
+  /* MapLibre memaksa Helvetica (CSS tanpa layer, menang atas @layer); samakan dengan font aplikasi. */
+  .maplibregl-map {
+    font-family: inherit !important;
+  }
+  .maplibregl-popup-content {
+    @apply bg-transparent! shadow-none! p-0! rounded-none!;
+  }
+  /* Panah popup (seperti .with-arrow dropdown FreeDash), warnanya mengikuti kartu. */
+  .maplibregl-popup-tip {
+    border-width: 8px !important;
+  }
+  .maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+  .maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+  .maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip {
+    border-top-color: var(--overlay) !important;
+  }
+  .maplibregl-popup-anchor-top .maplibregl-popup-tip,
+  .maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+  .maplibregl-popup-anchor-top-right .maplibregl-popup-tip {
+    border-bottom-color: var(--overlay) !important;
+  }
+  .maplibregl-popup-anchor-left .maplibregl-popup-tip {
+    border-right-color: var(--overlay) !important;
+  }
+  .maplibregl-popup-anchor-right .maplibregl-popup-tip {
+    border-left-color: var(--overlay) !important;
+  }
+  .maplibregl-ctrl-attrib {
+    @apply bg-surface! text-muted! border-border! rounded! border! shadow-sm!;
+  }
+  .maplibregl-ctrl-attrib a {
+    @apply text-muted!;
+  }
+  .maplibregl-ctrl-attrib-button {
+    @apply bg-transparent! dark:invert;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Kartu FreeDash: putih, tanpa border, bayangan biru-abu; saat diarahkan hanya bayangan yang menebal. */
+@utility card-surface {
+  @apply bg-surface text-surface-foreground rounded shadow-card;
+}
+/* Item menu aktif: blok gradien bersudut 10px (sama dengan tombol). */
+@utility nav-active {
+  background: var(--nav-gradient);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-nav);
+  color: #fff;
+}
+
+/* .custom-shadow FreeDash untuk kontrol putih di atas latar halaman (select tanggal, pencarian). */
+@utility custom-shadow {
+  box-shadow: 0 3px 9px 0 rgb(169 184 200 / 0.15);
+}
+
+/* Placeholder memuat: kilau bergerak dari kiri ke kanan. */
+@utility skeleton {
+  background: linear-gradient(90deg, var(--default) 0%, color-mix(in srgb, var(--default) 40%, var(--surface)) 50%, var(--default) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+/*
+ * Titik lokasi pengguna gaya Google Maps (UserLocation). Semua anak bertumpu di titik 0×0 elemen marker.
+ * Titik 18px tetap; lingkaran akurasi diukur JS dari meter → piksel sesuai zoom; sorot arah diputar JS.
+ */
+.gloc {
+  position: relative;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.gloc > * {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+.gloc__acc {
+  border-radius: 9999px;
+  background: rgb(66 133 244 / 0.15);
+  border: 1px solid rgb(66 133 244 / 0.35);
+  transform: translate(-50%, -50%);
+  transition: width 0.15s, height 0.15s, opacity 0.15s;
+}
+.gloc__beam {
+  width: 72px;
+  height: 64px;
+  transform-origin: 50% 100%;
+  /* Kerucut ±32° dari titik, memudar ke luar. */
+  background: radial-gradient(circle at 50% 100%, rgb(66 133 244 / 0.55) 0, rgb(66 133 244 / 0.3) 45%, rgb(66 133 244 / 0) 72%);
+  clip-path: polygon(50% 100%, 0 0, 100% 0);
+}
+.gloc__dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #4285f4;
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+  transform: translate(-50%, -50%);
+}
+
+/* Bentuk komponen HeroUI disesuaikan ke FreeDash (Bootstrap 5) dengan radius sedikit lebih bulat (8–12px), border tipis, tanpa border kartu. */
+@layer components {
+  .card {
+    /* Sudut besar seperti referensi Property Management Dashboard. */
+    border-radius: 1.5rem;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s;
+  }
+  /* Kartu Ringkasan sedikit "terangkat" saat diarahkan: bayangan saja, tanpa geser, agar grid tidak bergoyang. */
+  [data-board] .card:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+  /*
+   * Padding & header kartu Ringkasan, satu aturan untuk semua kartu (KPI, panel, hero, tile KPI baru):
+   * 20px di ponsel, 24px mulai 640px. Header: chip ikon 36px dan judul sejajar tengah (items-center di komponen).
+   */
+  .card-pad {
+    @apply p-5 sm:p-6;
+  }
+  /* Satu gaya judul untuk semua kartu (KPI, panel, peta): 16px, medium. */
+  .card__title {
+    font-size: 1rem;
+    line-height: 1.375;
+    font-weight: 500;
+    color: var(--heading);
+  }
+  .card__description {
+    color: var(--muted);
+    font-weight: 300;
+  }
+  /* Tombol 40px dengan padding 16px: cukup besar untuk jari (grid 4pt). */
+  .button {
+    @apply h-10 rounded-control px-4 text-sm font-normal;
+  }
+  .button--icon-only {
+    @apply size-10 px-0;
+  }
+  /* Satu ukuran untuk semua tombol: size="sm"/"lg" disamakan dengan md (40px), agar tak ada tombol yang berbeda. */
+  .button--sm,
+  .button--lg {
+    @apply h-10 px-4 text-sm;
+  }
+  .button--sm.button--icon-only,
+  .button--lg.button--icon-only {
+    @apply size-10 px-0;
+  }
+  .button--primary {
+    background-color: var(--accent);
+  }
+  .button--primary:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--accent) 86%, black);
+  }
+  /* Sekunder = putih bertepi tipis: terbaca sama baiknya di atas kartu putih maupun latar halaman krem. */
+  .button--secondary {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--heading);
+  }
+  .button--secondary:hover:not(:disabled) {
+    background-color: var(--row-hover);
+  }
+  .input,
+  .select__trigger,
+  .search-field__group,
+  .textarea,
+  .input-group {
+    @apply rounded-control;
+    color: var(--field-foreground);
+  }
+  /* Kontrol satu baris setinggi tombol (40px). */
+  .select__trigger,
+  .input-group,
+  .search-field__group,
+  .date-input-group,
+  .number-field__group {
+    @apply min-h-10 rounded-control;
+  }
+  /* Tombol tutup (panel, popup, modal) mengikuti tombol ikon lain: 40px, sudut 10px. Tanpa latar (hanya ikon);
+     rona tipis muncul saat diarahkan agar area kliknya tetap terlihat. */
+  .close-button {
+    @apply size-10 rounded-control bg-transparent text-muted hover:bg-default hover:text-heading;
+  }
+  /* Paginasi: tiap nomor/panah = tombol ikon 40px sudut 10px. */
+  .pagination .pagination__link {
+    @apply h-10 min-w-10 rounded-control px-3 text-sm;
+  }
+  .input:not(.input-group *) {
+    @apply h-10;
+  }
+  .chip {
+    @apply rounded-control px-2.5 text-xs font-normal;
+  }
+  .popover,
+  .dropdown__popover,
+  .select__popover {
+    border-radius: 0.75rem;
+    box-shadow: var(--shadow-float);
+    border: 0;
+  }
+  /* Daftar panjang digulir di dalam popover: tetap muat di bawah trigger, tidak dibalik ke atas menutupi filter/header. */
+  .dropdown__popover,
+  .select__popover {
+    max-height: min(18rem, 50dvh);
+    overflow-y: auto;
+  }
+  /* Trigger HeroUI ber-inline-flex tanpa align-items (ikon menempel di atas teks) dan selebar isinya
+     (nama panjang meluap keluar lebar Select, mis. menimpa kotak cari): rata tengah, isi lebar Select, teks terpotong. */
+  .select__trigger {
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+  }
+  /* Dropdown bertepi tipis seperti tombol sekunder, bukan tepi gelap `--field-border` milik isian teks. */
+  .select__trigger,
+  .select__trigger:hover,
+  .select__trigger[data-hovered=true] {
+    border-color: var(--border);
+  }
+  .modal__dialog {
+    border-radius: 1rem;
+  }
+  .table-root {
+    border-radius: 0.75rem;
+  }
+  .table__column {
+    @apply text-xs font-medium text-muted;
+  }
+  .table__cell {
+    @apply py-4;
+  }
+  .table__row:hover {
+    background-color: var(--row-hover);
+  }
+  .toggle-button,
+  .tabs__tab {
+    @apply whitespace-nowrap;
+  }
+  .toggle-button {
+    @apply rounded-control;
+  }
+  .toggle-button {
+    @apply h-10 px-4 text-sm;
+  }
+  /* Tab tersegmentasi: wadah 40px sudut 10px, tab & indikator di dalamnya sudut 6px (10px - padding 4px),
+     sama dengan kotak cari di header. */
+  .tabs__list-container {
+    @apply rounded-control;
+  }
+  /* Checkbox: sudut kotak, isian hijau, dan cincin fokus satu radius (bukan outline global di label yang membulat),
+     centang memenuhi kotak; saat terpilih + diarahkan isian tetap hijau (bukan abu accent-hover). */
+  .checkbox__control,
+  .checkbox__control::before {
+    border-radius: 0.3rem;
+  }
+  .checkbox:focus-visible {
+    outline: none;
+  }
+  .checkbox__indicator {
+    width: 100%;
+    height: 100%;
+  }
+  .checkbox__indicator > svg {
+    width: 75%;
+    height: 75%;
+  }
+  .checkbox[data-selected='true']:hover .checkbox__control::before,
+  .checkbox[data-indeterminate='true']:hover .checkbox__control {
+    background-color: var(--accent);
+    filter: brightness(1.08);
+  }
+  /* Tabel menu Data (layer & tabel ruas): judul & isi kolom rata tengah, judul tidak dipatah, panah urut rapat di
+     sebelah judul (bawaan HeroUI: didorong ke tepi kolom, terlihat menabrak judul kolom sebelah). */
+  .data-table .table__column,
+  .data-table .table__cell {
+    text-align: center;
+  }
+  .data-table .table__column {
+    white-space: nowrap;
+  }
+  /* Kolom sempit (checkbox, angka) tidak perlu padding 16px kiri-kanan: tabel muat tanpa kolom Aksi terpotong. */
+  .data-table .table__column,
+  .data-table .table__cell {
+    padding-inline: 0.625rem;
+  }
+  /* Checkbox pilih baris di tengah kolomnya, sejajar dengan checkbox "pilih semua" di header. */
+  .data-table .checkbox {
+    display: inline-flex;
+    vertical-align: middle;
+  }
+  .data-table .table__sortable-column-header {
+    justify-content: center;
+    gap: 0.375rem;
+  }
+  .tabs__tab,
+  .tabs__indicator {
+    @apply rounded-md;
+  }
+  .toggle-button-group {
+    @apply rounded-control;
+  }
+  /* Grup toggle (mis. ID/EN): sudut luar 10px seperti tombol lain, bukan kapsul 24px bawaan HeroUI. */
+  .toggle-button-group--horizontal > .toggle-button:first-child:not(:last-child) {
+    border-radius: var(--radius-control) 0 0 var(--radius-control);
+  }
+  .toggle-button-group--horizontal > .toggle-button:last-child:not(:first-child) {
+    border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  }
+  .toggle-button[data-selected='true'] {
+    color: var(--accent-text);
+  }
+}
+
+/*
+ * SweetAlert2 memakai token aplikasi (ikut tema terang/gelap lewat class .dark), bukan warna bawaannya.
+ * Tata letak mengikuti demo sweetalert2.github.io (ikon besar beranimasi di tengah, judul besar, tombol di tengah),
+ * tetapi tanpa huruf tebal: judul & isi 400 (Rubik 500 sudah tampak tebal), tombol 500 agar tetap terbaca sebagai tombol.
+ * Kontras: tombol utama aksen + accent-foreground (≥ 4.5:1 di kedua tema), "Tidak" netral bertepi,
+ * tombol hapus merah dengan teks gelap di tema gelap (merah terang + putih hanya ~2.5:1).
+ */
+.swal2-container {
+  --swal2-backdrop: rgb(12 16 14 / 0.55);
+  --swal2-background: var(--overlay);
+  --swal2-color: var(--foreground);
+  --swal2-border: 1px solid var(--field-border);
+  --swal2-border-radius: 1.25rem;
+  --swal2-width: 28rem;
+  --swal2-padding: 2rem 1.75rem 1.75rem;
+  --swal2-title-padding: 1rem 0 0;
+  --swal2-html-container-padding: 0.5rem 0 0;
+  --swal2-actions-margin: 1.75rem 0 0;
+  --swal2-outline: 0 0 0 3px color-mix(in srgb, var(--focus) 45%, transparent);
+  --swal2-confirm-button-background-color: var(--accent);
+  --swal2-confirm-button-color: var(--accent-foreground);
+  --swal2-confirm-button-border-radius: 0.75rem;
+  --swal2-cancel-button-background-color: var(--surface);
+  --swal2-cancel-button-color: var(--heading);
+  --swal2-cancel-button-border-radius: 0.75rem;
+  --swal2-cancel-button-box-shadow: inset 0 0 0 1px var(--field-border);
+  --swal2-timer-progress-bar-background: var(--accent);
+  --swal2-close-button-color: var(--subtle);
+  /* Toast tanpa garis tepi: dipisah dari halaman oleh bayangan saja. */
+  --swal2-toast-border: 0;
+  --swal-danger-foreground: #ffffff;
+}
+.dark .swal2-container {
+  --swal2-backdrop: rgb(0 0 0 / 0.7);
+  --swal-danger-foreground: #2a0710;
+}
+.swal2-container .swal2-popup:not(.swal2-toast) {
+  box-shadow: 0 24px 48px -12px rgb(0 0 0 / 0.28), 0 2px 6px rgb(0 0 0 / 0.08);
+}
+.swal2-popup .swal2-title {
+  color: var(--heading);
+  font-size: 1.5rem;
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+/*
+  Toast pojok kanan bawah (simpan, hapus, galat login): ringkas dan sejajar. Ikon 24px di baris judul (bukan 40px di
+  tengah), judul 14px tebal, keterangan 13px redup di bawahnya, progress bar mengikuti sudut kartu.
+*/
+.swal2-popup.swal2-toast {
+  width: 22rem;
+  padding: 0.75rem 1rem 0.875rem;
+  column-gap: 0.75rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  border-radius: 0.875rem;
+  overflow: hidden;
+  box-shadow: 0 12px 32px -8px rgb(0 0 0 / 0.22), 0 2px 6px rgb(0 0 0 / 0.06);
+}
+.swal2-popup.swal2-toast .swal2-icon {
+  grid-row: 1 / 3;
+  align-self: start;
+  font-size: 0.625rem;
+  margin: 0;
+}
+.swal2-popup.swal2-toast .swal2-title {
+  margin: 0;
+  padding: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.5rem;
+  text-align: left;
+}
+.swal2-popup.swal2-toast .swal2-html-container {
+  margin: 0.125rem 0 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  text-align: left;
+}
+.swal2-popup.swal2-toast .swal2-timer-progress-bar {
+  height: 2px;
+}
+.swal2-popup .swal2-html-container {
+  color: var(--foreground);
+  font-size: 0.95rem;
+  font-weight: 400;
+  line-height: 1.6;
+}
+.swal2-popup .swal2-actions {
+  gap: 0.75rem;
+}
+.swal2-popup .swal2-styled {
+  margin: 0;
+  min-width: 7.5rem;
+  min-height: 2.75rem;
+  padding: 0 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: background-color 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+.swal2-popup .swal2-styled:active {
+  transform: scale(0.97);
+}
+.swal2-popup .swal2-styled.swal-danger {
+  background-color: var(--danger);
+  color: var(--swal-danger-foreground);
+}
+/* Ikon ukuran & animasi bawaan (seperti demo), warnanya dari token tema. */
+.swal2-popup .swal2-icon {
+  margin: 0.25rem auto 0;
+}
+.swal2-popup .swal2-icon.swal2-warning {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+.swal2-popup .swal2-icon.swal2-question {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.swal2-popup .swal2-icon.swal2-info {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.swal2-popup .swal2-icon.swal2-error {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.swal2-popup .swal2-icon.swal2-error [class^='swal2-x-mark-line'] {
+  background-color: var(--danger);
+}
+.swal2-popup .swal2-icon.swal2-success {
+  border-color: var(--success);
+  color: var(--success);
+}
+.swal2-popup .swal2-icon.swal2-success [class^='swal2-success-line'] {
+  background-color: var(--success);
+}
+.swal2-popup .swal2-icon.swal2-success .swal2-success-ring {
+  border-color: color-mix(in srgb, var(--success) 35%, transparent);
+}
+/* Bayangan putih animasi centang bawaan menutupi ring di tema gelap: samakan dengan warna popup. */
+.swal2-popup .swal2-icon.swal2-success [class^='swal2-success-circular-line'],
+.swal2-popup .swal2-icon.swal2-success .swal2-success-fix {
+  background-color: var(--overlay) !important;
+}
+/* Konfirmasi: nama data yang diubah/dihapus, teks polos warna judul di bawah keterangan (tanpa kotak/latar). */
+.swal2-popup .swal-subject {
+  margin-top: 0.5rem;
+  color: var(--heading);
+  font-size: 1rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * Header mendapat bayangan tipis begitu halaman digulir (animasi berbasis gulir, tanpa JS). Browser tanpa dukungan
+ * scroll-timeline dan pengguna "kurangi gerakan" tetap mendapat header datar.
+ */
+@keyframes header-lift {
+  to { box-shadow: 0 6px 18px -12px rgb(29 36 32 / 0.35); }
+}
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .app-header {
+      animation: header-lift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 64px;
+    }
+  }
+}

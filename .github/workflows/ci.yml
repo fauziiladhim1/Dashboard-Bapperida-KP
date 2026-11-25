@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgis/postgis:17-3.5-alpine
+        env:
+          POSTGRES_USER: sipwil
+          POSTGRES_PASSWORD: sipwil
+          POSTGRES_DB: sipwil_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U sipwil -d sipwil_test"
+          --health-interval 5s --health-retries 10
+    env:
+      # global-setup tes memakai TEST_DATABASE_URL apa adanya (tanpa akhiran _test).
+      TEST_DATABASE_URL: postgres://sipwil:sipwil@localhost:5432/sipwil_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      # Pastikan image produksi tetap bisa dibangun; tidak di-push, deploy tetap manual (docs/DEPLOY.md).
+      - run: docker build -f docker/api.Dockerfile . && docker build -f docker/web.Dockerfile .
