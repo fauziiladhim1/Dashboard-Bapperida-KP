@@ -100,7 +100,7 @@ describe('Ringkasan: kecamatan, tanpa ruas rusak, selisih nol & turun', () => {
     // Km rusak berat dari tabel survei: 2026 = 0 km, 2025 = 1 km; kemantapan 100% di keterangan.
     expect(await within(roadCard()).findByText(/^-1 km dibanding 2025/)).toBeInTheDocument();
     expect(within(roadCard()).getByText('0 km')).toBeInTheDocument();
-    expect(within(roadCard()).getByText(/^Kemantapan 100% · /)).toBeInTheDocument();
+    expect(within(roadCard()).getByText(/^Kemantapan 100%, /)).toBeInTheDocument();
     const pju = screen.getByRole('link', { name: 'Titik penerangan jalan umum' }).closest<HTMLElement>('.card')!;
     expect(within(pju).queryByText(/dibanding/)).not.toBeInTheDocument();
   });

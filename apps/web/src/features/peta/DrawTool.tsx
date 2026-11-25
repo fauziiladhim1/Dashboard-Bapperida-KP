@@ -197,7 +197,8 @@ export function DrawPanel({ tools, draft, onPick, onChange, onFinish, onCancel, 
                   <LegendSymbol color={layer.style.color} geom={layer.geomType} className="mt-1.5" />
                   <span className="min-w-0 flex-1">
                     <span className="block font-medium text-heading">{t(label)}</span>
-                    <span className="mt-0.5 block text-xs text-muted tabular-nums">{t(sub)} · {t('map.nFeatures', { n: fmt(layer.featureCount) })}</span>
+                    {/* Keterangan kiri, jumlah tersimpan rata kanan: tanpa pemisah titik tengah. */}
+                    <span className="mt-0.5 flex gap-2 text-xs text-muted tabular-nums"><span>{t(sub)}</span><span className="ml-auto shrink-0">{t('map.nFeatures', { n: fmt(layer.featureCount) })}</span></span>
                   </span>
                   <Icon className={cn('mt-0.5 size-4 shrink-0', on ? 'text-accent' : 'text-muted')} />
                 </button>

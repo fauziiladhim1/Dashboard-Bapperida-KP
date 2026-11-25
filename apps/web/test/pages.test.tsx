@@ -194,7 +194,7 @@ describe('Ringkasan', () => {
       'GET /stats/layers/pju': [{ key: null, count: 3, lengthKm: 0, areaHa: 0 }] });
     renderAt('/');
     // Km rusak berat dari tabel survei (0,71 km), bukan panjang ruas SK yang berkelas Rusak Berat (4,5 km).
-    expect(await screen.findByText('Kemantapan 62% · 5 km disurvei 2025 · 1 dari 1 ruas', {}, { timeout: 10000 })).toBeInTheDocument();
+    expect(await screen.findByText('Kemantapan 62%, 5 km disurvei 2025, 1 dari 1 ruas', {}, { timeout: 10000 })).toBeInTheDocument();
     expect(screen.getByText('Tanpa Kelas')).toBeInTheDocument(); // PJU tanpa jenis lampu
   });
 

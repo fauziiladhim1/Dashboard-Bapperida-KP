@@ -309,7 +309,7 @@ describe('Ringkasan: kemiskinan per wilayah, pembanding survei & layer', () => {
     expect(within(road).getByRole('button', { name: /^Rusak Berat360%$/ })).toBeInTheDocument();
     expect(within(road).getByText('1,6 km')).toBeInTheDocument();
     expect(await within(road).findByText(/\+0,6 km dibanding 2024/)).toBeInTheDocument();
-    expect(within(road).getByText(/^Kemantapan 56% /)).toBeInTheDocument();
+    expect(within(road).getByText(/^Kemantapan 56%, /)).toBeInTheDocument();
     const pju = screen.getByRole('link', { name: 'Titik penerangan jalan umum' }).closest<HTMLElement>('.card')!;
     expect(within(pju).getByText(/\+3 dibanding 2025/)).toBeInTheDocument();
   });

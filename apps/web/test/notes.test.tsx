@@ -174,7 +174,8 @@ describe('Peta: alat gambar penanda lokasi', () => {
     expect(await screen.findByText('6', {}, { timeout: 5000 })).toBeInTheDocument();
     await openPanel();
     const panel = await screen.findByRole('complementary', { name: 'Catatan rencana' });
-    expect(within(panel).getByText('Min. 3 titik · 3 fitur')).toBeInTheDocument();
+    expect(within(panel).getByText('Min. 3 titik')).toBeInTheDocument();
+    expect(within(panel).getByText('3 fitur')).toBeInTheDocument();
     await userEvent.click(within(panel).getByRole('button', { name: 'Gambar garis' }));
     click(110, -7.8);
     await userEvent.click(screen.getByRole('button', { name: 'Tutup catatan rencana' }));
