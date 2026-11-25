@@ -210,7 +210,7 @@ export const statsRouter = (sql: Sql): Router => {
     const [ver] = await sql<{ v: string | null }[]>`
       SELECT greatest((SELECT max(updated_at) FROM layers WHERE slug = ANY(${slugs})),
                       (SELECT updated_at FROM pengaturan WHERE key = 'keterpaparan'))::text AS v`;
-    const cacheKey = `${kecamatan ?? ''}|${ver?.v ?? ''}`;
+    const cacheKey = `${kecamatan ?? ''}|${ver!.v}`;
     if (!exposureCache.has(cacheKey)) {
       // layer_id di syarat join (bukan JOIN layers): tanpa ini indeks geom menarik semua fitur yang bbox-nya bersinggungan
       // (ribuan poligon tutupan lahan) dan ST_Intersects dijalankan sebelum filter layer (±14 dtk -> ±4 dtk tanpa cache).

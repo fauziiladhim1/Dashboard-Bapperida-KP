@@ -6,6 +6,7 @@ import type { Hover } from '@/components/map/MapHover';
 import { fmt } from '@/lib/format';
 import { classLabel, colorField, colorOf } from '@/lib/layer-style';
 import { useT } from '@/lib/prefs';
+import { cn } from '@/lib/utils';
 import type { Layer } from '@/lib/types';
 
 /** MapPopup bawaan mapcn sudah berupa kartu; dikosongkan agar hanya PopupCard yang tampil (bukan kartu dobel). */
@@ -98,4 +99,17 @@ export function HoverTip({ hover, layers }: { hover: Hover; layers: Layer[] }) {
       {kec && <p className="break-words pl-3.5 text-[11px] text-muted">{kec}</p>}
     </div>
   );
+}
+
+/** Kartu baris panel peta (layer & catatan rencana): aktif = sorotan aksen tipis. */
+export const rowClass = (on: boolean) =>
+  cn('rounded-xl px-3 py-3 transition-colors', on ? 'bg-accent/[0.08] ring-1 ring-accent/25 ring-inset' : 'hover:bg-default');
+
+/**
+ * Simbol legenda sesuai geometri: poligon kotak, garis batang, titik lingkaran (panel layer & panel catatan rencana).
+ * Tepi tipis menjaga warna terang (mis. Badan Air, Hortikultura) tetap terlihat di latar terang maupun gelap.
+ */
+export function LegendSymbol({ color, geom, className }: { color: string; geom: Layer['geomType']; className?: string }) {
+  const shape = geom === 'Point' ? 'size-2.5 rounded-full' : geom === 'LineString' ? 'h-[3px] w-4 rounded-full' : 'h-2.5 w-3.5 rounded-[3px]';
+  return <span aria-hidden className={cn('inline-block shrink-0 ring-1 ring-black/20 ring-inset dark:ring-white/30', shape, className)} style={{ background: color }} />;
 }

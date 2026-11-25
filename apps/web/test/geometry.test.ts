@@ -33,3 +33,17 @@ describe('parseGeometryText: GeoJSON tak lazim', () => {
       expect(parseGeometryText(s, 'Point')).toEqual({ ok: false, reason: 'syntax' });
   });
 });
+
+describe('parseGeometryText: topologi area', () => {
+  it('cincin berpotongan, segaris, atau kurang dari 3 titik ditolak; garis berpotongan tetap boleh', () => {
+    const bad = (w: string) => expect(parseGeometryText(w, 'Polygon')).toEqual({ ok: false, reason: 'topology' });
+    bad('POLYGON ((0 0, 1 1, 1 0, 0 1, 0 0))');
+    bad('POLYGON ((0 0, 1 0, 2 0, 0 0))');
+    bad('POLYGON ((0 0, 1 0, 0 0))');
+    bad('MULTIPOLYGON (((0 0, 1 0, 1 1, 0 1, 0 0)), ((5 5, 6 6, 6 5, 5 6, 5 5)))');
+    expect(parseGeometryText('{"type":"Polygon","coordinates":[[[0,0],[1,0],[1,1]]]}', 'Polygon').ok).toBe(true); // cincin tanpa penutup
+    expect(parseGeometryText('{"type":"Polygon","coordinates":[[[0,0]]]}', 'Polygon')).toEqual({ ok: false, reason: 'topology' });
+    expect(parseGeometryText('LINESTRING (0 0, 1 1, 1 0, 0 1)', 'LineString').ok).toBe(true);
+  });
+});
+

@@ -71,7 +71,7 @@ Restore: `docker compose exec -T db pg_restore -U sipwil -d sipwil --clean < fil
 git pull
 docker compose --profile prod up -d --build
 docker compose --profile prod run --rm api node dist/db/cli.js migrate
-# Sinkronkan layer bawaan (mis. layer baru Penanda Lokasi). Idempoten; akun seed yang sudah dihapus tidak dibuat ulang.
+# Sinkronkan layer bawaan (mis. layer baru Catatan Rencana). Idempoten; akun seed yang sudah dihapus tidak dibuat ulang.
 docker compose --profile prod run --rm api node dist/db/cli.js seed
 ```
 

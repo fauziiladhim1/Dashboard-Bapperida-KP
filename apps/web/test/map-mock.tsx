@@ -27,6 +27,8 @@ export const fakeMap = {
   getStyle() {
     return { layers: fakeMap.addLayer.mock.calls.map(([l]) => l as { id: string; source: string }) };
   },
+  // Proyeksi sederhana: 1 piksel = 0,0001 derajat (radius tempel 12 px = 0,0012 derajat).
+  project: vi.fn((p: [number, number]) => ({ x: p[0] * 1e4, y: -p[1] * 1e4 })),
   queryRenderedFeatures: vi.fn(function (this: { rendered: unknown[] }) {
     return fakeMap.rendered;
   }),

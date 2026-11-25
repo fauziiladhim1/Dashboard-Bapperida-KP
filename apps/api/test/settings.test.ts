@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { API, loginAs } from './helpers.js';
+import { API, loginAs, sql } from './helpers.js';
 
 type Agent = Awaited<ReturnType<typeof loginAs>>['agent'];
 let admin: Agent;
@@ -31,5 +31,22 @@ describe('pengaturan (DB)', () => {
     const u = original.urgensi as { abaikan: string; aturan: { field: string; tinggi: string }[] };
     await admin.put(`${API}/settings/urgensi`).send({ ...u, aturan: u.aturan.map((a) => (a.field === 'kondisi' ? { ...a, tinggi: `${a.tinggi}|^baik$` } : a)) }).expect(200);
     expect(await ids()).toContain(f.id);
+  });
+
+  it('pola sah di JS tetapi tidak di PostgreSQL ditolak; sedang null diterima', async () => {
+    const u = (await admin.get(`${API}/settings`).expect(200)).body.urgensi as { abaikan: string; aturan: { sedang: string | null }[] };
+    await admin.put(`${API}/settings/urgensi`).send({ ...u, abaikan: '(?<x>a)' }).expect(400);
+    await admin.put(`${API}/settings/urgensi`).send({ ...u, aturan: u.aturan.map((a) => ({ ...a, sedang: null })) }).expect(200);
+    await admin.put(`${API}/settings/urgensi`).send(u).expect(200);
+  });
+
+  it('baris pengaturan hilang: dibaca -> 500, diubah -> 404', async () => {
+    const [row] = await sql<{ value: object }[]>`DELETE FROM pengaturan WHERE key = 'keterpaparan' RETURNING value`;
+    try {
+      await editor.get(`${API}/stats/exposure`).expect(500);
+      await admin.put(`${API}/settings/keterpaparan`).send(row!.value).expect(404);
+    } finally {
+      await sql`INSERT INTO pengaturan (key, value) VALUES ('keterpaparan', ${sql.json(row!.value as never)})`;
+    }
   });
 });

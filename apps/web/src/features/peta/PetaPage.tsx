@@ -5,13 +5,13 @@ import type { MapGeoJSONFeature } from 'maplibre-gl';
 import { AnimatePresence, m } from 'motion/react';
 import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
-import { Map, MapControls, MapMarker, MapPopup, MarkerContent, useMap } from '@/components/ui/map';
+import { Map, MapControls, MapPopup, useMap } from '@/components/ui/map';
 import { VectorLayers } from '@/components/map/VectorLayers';
 import { MapHover, type Hover } from '@/components/map/MapHover';
 import { UserLocation, type Fix } from '@/components/map/UserLocation';
 import { Buildings3D } from '@/components/map/Buildings3D';
 import { HazardRaster, identify, kelasOf, type Boundary } from '@/components/map/HazardRaster';
-import { featureLabel, HoverTip, labelKey, POPUP, PopupCard } from '@/components/map/MapOverlays';
+import { featureLabel, HoverTip, labelKey, LegendSymbol, POPUP, PopupCard, rowClass } from '@/components/map/MapOverlays';
 import { Collapse, EASE, Toggle } from '@/components/common/motion';
 import { KecamatanSelect } from '@/components/common/KecamatanSelect';
 import { Tip } from '@/components/common/Tip';
@@ -19,7 +19,8 @@ import { YearNote, YearSelect } from '@/components/common/YearRange';
 import { DICT } from '@/lib/i18n';
 import { endpoints, refreshData } from '@/lib/api';
 import { canEdit, useMe } from '@/hooks/use-auth';
-import { ClickToPlace, drawnWkt, FeatureDialog } from '@/features/data/FeatureDialog';
+import { FeatureDialog } from '@/features/data/FeatureDialog';
+import { DrawPanel, DrawTool, type Draft } from './DrawTool';
 import { fmt, fmtCompact, fmtDate, getLocale } from '@/lib/format';
 import { classLabel, classOrder, colorField, colorOf, groupRows, KULON_PROGO_CENTER, legendOf } from '@/lib/layer-style';
 import { usePrefs, useT } from '@/lib/prefs';
@@ -49,15 +50,12 @@ const HAZARDS = [
 ] as const;
 type HazardId = (typeof HAZARDS)[number]['id'];
 type Selected = { id: string | number; layer: Layer; lng: number; lat: number };
-type Pt = [number, number];
-/** Alat gambar penanda lokasi: satu layer catatan per jenis geometri (seed API), digambar editor langsung di peta. */
+/** Alat gambar catatan rencana: satu layer catatan per jenis geometri (seed API), digambar editor langsung di peta. */
 const DRAW_TOOLS = [
-  { slug: 'catatan-titik', label: 'draw.point', Icon: MapPin },
-  { slug: 'catatan-garis', label: 'draw.line', Icon: PencilToLine },
-  { slug: 'catatan-area', label: 'draw.polygon', Icon: VectorSquare },
+  { slug: 'catatan-titik', label: 'draw.point', sub: 'draw.pointSub', Icon: MapPin },
+  { slug: 'catatan-garis', label: 'draw.line', sub: 'draw.lineSub', Icon: PencilToLine },
+  { slug: 'catatan-area', label: 'draw.polygon', sub: 'draw.polygonSub', Icon: VectorSquare },
 ] as const;
-/** Gambar yang sedang dibuat: titik sudut garis/area (titik langsung selesai sekali klik). */
-type Draft = { layer: Layer; pts: Pt[] };
 /** Gambar selesai -> dialog fitur baru berisi geometrinya (WKT) untuk diberi judul & catatan. */
 type Editing = { layer: Layer; wkt: string };
 
@@ -71,6 +69,8 @@ export default function PetaPage() {
   const qc = useQueryClient();
   const editor = canEdit(useMe().data);
   const [draft, setDraft] = useState<Draft | null>(null);
+  // Panel catatan rencana tertutup saat halaman dibuka: peta lebih lega, editor membukanya bila perlu.
+  const [drawOpen, setDrawOpen] = useState(false);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [params, setParams] = useSearchParams();
   // Filter kecamatan di URL (?kec=) agar bisa dibuka langsung dari hasil pencarian wilayah.
@@ -155,10 +155,9 @@ export default function PetaPage() {
     if (f.id !== undefined) setSelected({ id: f.id, layer, lng: p.lng, lat: p.lat });
   }, [hazardOn, draft]);
   const tools = DRAW_TOOLS.flatMap((d) => (layers.data ?? []).filter((l) => l.slug === d.slug).map((layer) => ({ ...d, layer })));
-  const draftWkt = draft && draft.layer.geomType !== 'Point' ? drawnWkt(draft.pts, draft.layer.geomType) : '';
-  const finish = (layer: Layer, wkt: string) => { setDraft(null); setEditing({ layer, wkt }); };
-  const onDrawPick = (p: Pt) => (draft!.layer.geomType === 'Point'
-    ? finish(draft!.layer, `POINT (${p[0]} ${p[1]})`) : setDraft({ ...draft!, pts: [...draft!.pts, p] }));
+  // Alat yang sama ditekan lagi = batal; alat lain = mulai gambar baru. Tooltip hover disembunyikan selama menggambar.
+  const onDrawFinish = (wkt: string) => { setEditing({ layer: draft!.layer, wkt }); setDraft(null); };
+  const pickTool = (layer: Layer) => { setSelected(null); setHover(null); setDraft(draft?.layer.slug === layer.slug ? null : { layer, pts: [] }); };
   const onDrawSaved = (l: Layer) => {
     // Gambar baru langsung terlihat: layernya dinyalakan, daftar layer (versi tile) & fitur dimuat ulang.
     update(l.slug, { on: true }, l);
@@ -244,7 +243,8 @@ export default function PetaPage() {
         <MapControls position="bottom-right" showZoom showCompass showLocate showFullscreen onLocate={setMe} />
         {me && <UserLocation initial={me} />}
         <VectorLayers layers={visible} kecamatan={kecamatan} tahun={tahun} onFeatureClick={onFeatureClick} selected={selected && { slug: selected.layer.slug, id: selected.id }} />
-        <MapHover onHover={setHover} />
+        {/* Saat menggambar, kursor silang & klik milik DrawTool (bukan sorotan/tooltip objek di bawahnya). */}
+        {!draft && <MapHover onHover={setHover} />}
         {hazardOn && <HazardRaster service={service} opacity={hazardOpacity} boundary={boundary.data} onPick={setHazardPick} />}
         {hazardOn && hazardPick && (
           <MapPopup longitude={hazardPick.lng} latitude={hazardPick.lat} onClose={() => setHazardPick(null)} closeOnClick={false} className={POPUP}>
@@ -261,17 +261,14 @@ export default function PetaPage() {
             <FeaturePopup selected={selected} tahun={tahun} onClose={() => setSelected(null)} />
           </MapPopup>
         )}
-        {draft && <ClickToPlace crosshair onPick={onDrawPick} />}
-        {draft?.pts.map((p, i) => (
-          <MapMarker key={`${i}-${p[0]}-${p[1]}`} longitude={p[0]} latitude={p[1]}>
-            <MarkerContent><span className="block size-2.5 rounded-full border-2 border-white shadow" style={{ backgroundColor: draft.layer.style.color }} /></MarkerContent>
-          </MapMarker>
-        ))}
+        {draft && (
+          <DrawTool draft={draft} onChange={setDraft} onCancel={() => setDraft(null)} onFinish={onDrawFinish} />
+        )}
       </Map>
       {hover && <HoverTip hover={hover} layers={layers.data ?? []} />}
 
       {/* Peta penuh di belakang sidebar melayang; panel layer mulai 32px di kanan sidebar (celah untuk tab perkecil/perbesar 24px). */}
-      <div className="absolute top-4 left-4 hidden transition-[left] duration-200 md:block lg:left-[calc(var(--sidebar-offset)+2rem)]">
+      <div className="absolute top-4 left-4 z-30 hidden transition-[left] duration-200 md:block lg:left-[calc(var(--sidebar-offset)+2rem)]">
         <AnimatePresence mode="wait" initial={false}>
           {panelOpen ? (
             <m.aside
@@ -301,30 +298,14 @@ export default function PetaPage() {
         </AnimatePresence>
       </div>
 
-      <div className="absolute top-4 right-4 flex items-center gap-2">
-        {editor && tools.length > 0 && (
-          <div role="group" aria-label={t('draw.tools')} className="flex flex-wrap items-center gap-1 rounded-2xl bg-surface p-1 shadow-float">
-            {draft ? (
-              <>
-                <span className="px-2 text-xs text-heading tabular-nums">
-                  {draft.layer.geomType === 'Point' ? t('map.placeNote') : t(draft.layer.geomType === 'Polygon' ? 'draw.hintPolygon' : 'draw.hintLine', { n: draft.pts.length })}
-                </span>
-                {draft.layer.geomType !== 'Point' && (
-                  <>
-                    <Button size="sm" variant="secondary" isDisabled={!draft.pts.length} onPress={() => setDraft({ ...draft, pts: draft.pts.slice(0, -1) })}>{t('draw.undo')}</Button>
-                    <Button size="sm" isDisabled={!draftWkt} onPress={() => finish(draft.layer, draftWkt)}>{t('draw.done')}</Button>
-                  </>
-                )}
-                <Button size="sm" variant="tertiary" onPress={() => setDraft(null)}>{t('common.cancel')}</Button>
-              </>
-            ) : tools.map(({ layer, label, Icon }) => (
-              <Button key={layer.slug} size="sm" variant="tertiary" aria-label={t(label)} onPress={() => { setSelected(null); setDraft({ layer, pts: [] }); }}>
-                <Icon className="size-4" /><span className="hidden sm:inline">{t(label)}</span>
-              </Button>
-            ))}
-          </div>
-        )}
+      {/* Kanan atas: tombol panel layer (mobile) lalu panel catatan rencana (editor), sepola panel layer di kiri.
+          z-30: panel di atas tooltip objek peta (HoverTip z-20) agar tidak tertutup saat kursor di dekat tepi. */}
+      <div className="absolute top-4 right-4 z-30 flex flex-col items-end gap-2">
         <div className="md:hidden"><MobilePanel label={t('map.layers')} title={t('map.panelTitle')}>{panel}</MobilePanel></div>
+        {editor && tools.length > 0 && (
+          <DrawPanel tools={tools} draft={draft} onPick={pickTool} onChange={setDraft} onCancel={() => setDraft(null)} onFinish={onDrawFinish}
+            open={drawOpen} onOpen={setDrawOpen} />
+        )}
       </div>
       {editing && (
         <FeatureDialog layer={editing.layer} featureId={null} draftWkt={editing.wkt} readOnly={false}
@@ -685,13 +666,6 @@ function HazardPopup({ service, hazard, lng, lat, onClose }: {
 }
 
 /** Baris layer di panel: aktif ditandai warna primer (latar + garis tepi), bukan rona samar. */
-const rowClass = (on: boolean) =>
-  cn('rounded-xl px-3 py-3 transition-colors', on ? 'bg-accent/[0.08] ring-1 ring-accent/25 ring-inset' : 'hover:bg-default');
-
-/**
- * Simbol legenda sesuai geometri: poligon kotak, garis batang, titik lingkaran.
- * Tepi tipis menjaga warna terang (mis. Badan Air, Hortikultura) tetap terlihat di latar terang maupun gelap.
- */
 /**
  * Simbol baris layer: SATU warna dasar layer (unik antarlayer, dijaga tes seed), bukan warna per kelas; rincian kelas ada
  * di legenda di bawahnya. Batas administrasi di tema gelap memakai abu terang, sama dengan garis yang digambar VectorLayers.
@@ -699,10 +673,6 @@ const rowClass = (on: boolean) =>
 export const symbolOf = (l: Pick<Layer, 'slug' | 'style'>, dark: boolean): string =>
   l.slug === 'batas-administrasi' && dark ? '#E5E7EB' : l.style.color;
 
-function LegendSymbol({ color, geom, className }: { color: string; geom: Layer['geomType']; className?: string }) {
-  const shape = geom === 'Point' ? 'size-2.5 rounded-full' : geom === 'LineString' ? 'h-[3px] w-4 rounded-full' : 'h-2.5 w-3.5 rounded-[3px]';
-  return <span aria-hidden className={cn('inline-block shrink-0 ring-1 ring-black/20 ring-inset dark:ring-white/30', shape, className)} style={{ background: color }} />;
-}
 
 type LegendItem = { key: string; label: string; color: string; value?: string };
 type LegendGroup = { title: string | null; value?: string; items: LegendItem[] };

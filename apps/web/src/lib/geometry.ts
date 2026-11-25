@@ -1,4 +1,5 @@
 import { geojsonToWKT, wktToGeoJSON } from '@terraformer/wkt';
+import { finishProblem, type Pt } from './draw';
 import type { Layer } from './types';
 
 /** Tipe GeoJSON yang diterima per tipe dasar layer (server menyimpan sebagai Multi*). */
@@ -8,10 +9,10 @@ const ACCEPTS: Record<Layer['geomType'], GeoJSON.Geometry['type'][]> = {
   Polygon: ['Polygon', 'MultiPolygon'],
 };
 
-export type GeomResult = { ok: true; geometry: GeoJSON.Geometry } | { ok: false; reason: 'empty' | 'syntax' | 'type' | 'range' };
+export type GeomResult = { ok: true; geometry: GeoJSON.Geometry } | { ok: false; reason: 'empty' | 'syntax' | 'type' | 'range' | 'topology' };
 
 /** Semua posisi [lng, lat] dari array koordinat bersarang berapa pun dalamnya. */
-const positions = (c: unknown): number[][] =>
+export const positions = (c: unknown): number[][] =>
   !Array.isArray(c) ? [] : typeof c[0] === 'number' ? [c as number[]] : c.flatMap(positions);
 
 /**
@@ -38,6 +39,13 @@ export function parseGeometryText(text: string, geomType: Layer['geomType']): Ge
   const pts = 'coordinates' in g ? positions(g.coordinates) : [];
   if (!pts.length || pts.some((p) => p.length < 2 || !Number.isFinite(p[0]) || !Number.isFinite(p[1]))) return { ok: false, reason: 'syntax' };
   if (pts.some(([lng = 0, lat = 0]) => lng < -180 || lng > 180 || lat < -90 || lat > 90)) return { ok: false, reason: 'range' };
+  // Topologi area: tiap cincin minimal 3 titik berbeda, tidak segaris, tidak memotong dirinya. Garis boleh berpotongan
+  // (jalan melingkar sah); geometri tersimpan yang tidak diubah tidak divalidasi ulang saat simpan.
+  const rings = g.type === 'Polygon' ? g.coordinates : g.type === 'MultiPolygon' ? g.coordinates.flat() : [];
+  for (const ring of rings as Pt[][]) {
+    const open = ring.length > 1 && ring[0]![0] === ring.at(-1)![0] && ring[0]![1] === ring.at(-1)![1] ? ring.slice(0, -1) : ring;
+    if (open.length < 3 || finishProblem(open, 'Polygon')) return { ok: false, reason: 'topology' };
+  }
   return { ok: true, geometry: g };
 }
 

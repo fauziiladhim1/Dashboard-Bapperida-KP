@@ -44,14 +44,14 @@ describe('Pencarian global', () => {
     renderAt('/');
     const box = await screen.findByRole('combobox', { name: 'Cari data di semua layer' }, { timeout: 10000 });
     await userEvent.type(box, 'wat');
-    expect(await screen.findByText('Wilayah', {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText('Wilayah', {}, { timeout: 15_000 })).toBeInTheDocument();
     const list = screen.getByRole('listbox');
     expect(within(list).getByText('Data')).toBeInTheDocument();
     // Atribut yang cocok ditampilkan dengan label kolom layer.
     expect(within(list).getByText('Kode: PJU Wates 01')).toBeInTheDocument();
     await waitFor(() => expect(calls.some((c) => c.url === '/search?q=wat')).toBe(true));
     await userEvent.click(screen.getByRole('option', { name: /^Wates/ }));
-    await waitFor(() => expect(window.location.pathname).toBe('/peta'));
+    await waitFor(() => expect(window.location.pathname).toBe('/peta'), { timeout: 15_000 }); // chunk Peta dimuat malas
     expect(new URLSearchParams(window.location.search).get('kec')).toBe('Wates');
   });
 

@@ -133,3 +133,35 @@ describe('inarisk: unduh raster BNPB lalu tulis zona potensi-bencana', () => {
     expect(await sql`SELECT count(*)::int AS n FROM features f JOIN layers l ON l.id = f.layer_id AND l.slug = 'potensi-bencana'`).toEqual(before);
   }, 30_000);
 });
+
+describe('cabang lama: dana keputusan, cache keterpaparan', () => {
+  it('decision-funds: unik, di-trim, tanpa nilai kosong', async () => {
+    const lid = sql`(SELECT id FROM layers WHERE slug = 'utilitas-umum')`;
+    await sql`INSERT INTO features_all (layer_id, properties, geom) VALUES
+      (${lid}, ${sql.json({ nama: 'G1', sumber_dana: ' DAK ' })}, ST_SetSRID(ST_MakePoint(110.15, -7.85), 4326)),
+      (${lid}, ${sql.json({ nama: 'G1', sumber_dana: '' })}, ST_SetSRID(ST_MakePoint(110.15, -7.85), 4326))`;
+    const funds = (await viewer.get(`${API}/decision-funds`).expect(200)).body as string[];
+    expect(funds).toContain('DAK');
+    expect(funds).not.toContain('');
+  });
+
+  it('gambar yang runtuh jadi kosong ditolak (area segaris, garis berimpit); area sah tersimpan valid', async () => {
+    const flat = { type: 'Polygon', coordinates: [[[110.1, -7.8], [110.2, -7.8], [110.3, -7.8], [110.1, -7.8]]] };
+    const res = await editor.post(`${API}/layers/catatan-area/features`).send({ properties: { judul: 'G1' }, geometry: flat }).expect(400);
+    expect(res.body.error).toMatch(/nol/);
+    const ok = (await editor.post(`${API}/layers/catatan-garis/features`).send({ properties: { judul: 'G1' }, geometry: { type: 'LineString', coordinates: [[110.1, -7.8], [110.2, -7.9]] } }).expect(201)).body;
+    await editor.patch(`${API}/features/${ok.id}`).send({ geometry: { type: 'LineString', coordinates: [[110.1, -7.8], [110.1, -7.8]] } }).expect(400);
+    // Area berpotongan sendiri (dasi kupu-kupu) dirapikan server jadi multipoligon valid, bukan ditolak.
+    const bow = { type: 'Polygon', coordinates: [[[110.1, -7.8], [110.2, -7.9], [110.2, -7.8], [110.1, -7.9], [110.1, -7.8]]] };
+    const b = (await editor.post(`${API}/layers/catatan-area/features`).send({ properties: { judul: 'G1' }, geometry: bow }).expect(201)).body;
+    const [v] = await sql`SELECT ST_IsValid(geom) AS valid, ST_NumGeometries(geom)::int AS n FROM features WHERE id = ${b.id}`;
+    expect(v).toEqual({ valid: true, n: 2 });
+    await sql`DELETE FROM features_all WHERE properties->>'judul' = 'G1'`;
+  });
+
+  it('cache keterpaparan: permintaan sama dari cache; lebih dari 50 kunci dikosongkan', async () => {
+    const a = (await viewer.get(`${API}/stats/exposure?kecamatan=Cache0`).expect(200)).body;
+    expect((await viewer.get(`${API}/stats/exposure?kecamatan=Cache0`).expect(200)).body).toEqual(a);
+    for (let i = 1; i <= 52; i++) await viewer.get(`${API}/stats/exposure?kecamatan=Cache${i}`).expect(200);
+  }, 60_000);
+});

@@ -363,7 +363,7 @@ describe('Dialog fitur: kasus tepi', () => {
     await userEvent.click(within(d).getByRole('button', { name: 'Gambar poligon' }));
     expect(fakeMap.canvas.style.cursor).toBe('crosshair');
     for (const [lng, lat] of [[110, -7], [111, -7], [111, -8]]) act(() => fakeMap.fire('click', { lngLat: { lng, lat } }));
-    expect(within(d).getByText(/^3 titik, klik peta untuk menambah \(min\. 3/)).toBeInTheDocument();
+    expect(within(d).getByText(/^3 titik, klik titik pertama untuk menutup/)).toBeInTheDocument();
     expect(within(d).getByLabelText('Geometri (WKT)')).toHaveValue('POLYGON ((110 -7, 111 -7, 111 -8, 110 -7))');
     await userEvent.click(within(d).getByRole('button', { name: 'Selesai' }));
     expect(fakeMap.canvas.style.cursor).toBe('');

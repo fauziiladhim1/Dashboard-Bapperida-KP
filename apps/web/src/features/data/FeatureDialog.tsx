@@ -4,6 +4,7 @@ import { Button, buttonVariants, Input, Label, ListBox, NumberField, Select, Tex
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Map, MapGeoJSON, MapMarker, MarkerContent, useMap } from '@/components/ui/map';
 import { endpoints } from '@/lib/api';
+import { addVertex, type DrawProblem } from '@/lib/draw';
 import { parseGeometryText, toWkt, WKT_EXAMPLE } from '@/lib/geometry';
 import { KULON_PROGO_CENTER } from '@/lib/layer-style';
 import type { Layer, MediaItem, MediaMeta, Props } from '@/lib/types';
@@ -94,7 +95,16 @@ export function FeatureDialog({ layer, featureId, readOnly, onClose, onSaved, dr
   const [draft, setDraft] = useState<Point[] | null>(null);
   const drawable = !readOnly && layer.geomType !== 'Point';
   const preview = draft ? (parsed.ok ? parsed.geometry : null) : shown;
+  // Titik yang membuat gambar memotong dirinya ditolak (pesan di toolbar); klik ulang titik terakhir/pertama = selesai.
+  const [problem, setProblem] = useState<DrawProblem | null>(null);
+  const pick = (p: Point) => {
+    const r = addVertex(draft!, p, layer.geomType as 'LineString' | 'Polygon');
+    setProblem(r.problem ?? null);
+    if (r.done) setDraft(null);
+    else if (!r.problem) draw(r.pts);
+  };
   const draw = (pts: Point[]) => {
+    setProblem(null);
     setDraft(pts);
     setGeomText(drawnWkt(pts, layer.geomType as 'LineString' | 'Polygon'));
   };
@@ -231,6 +241,13 @@ export function FeatureDialog({ layer, featureId, readOnly, onClose, onSaved, dr
                     <NumberField.Group><NumberField.Input id={f.key} /></NumberField.Group>
                   </NumberField>
                 );
+                // ponytail: kolom `catatan` (catatan rencana) = teks panjang menurut nama field; tipe field khusus bila layer lain butuh.
+                if (f.key === 'catatan') return (
+                  <div key={f.key} className="flex flex-col gap-2 sm:col-span-2">
+                    {label}
+                    <TextArea id={f.key} name={f.key} required={f.required} defaultValue={def} rows={5} className="min-h-28 resize-y" />
+                  </div>
+                );
                 return (
                   <div key={f.key} className="flex flex-col gap-2">
                     {label}
@@ -289,7 +306,9 @@ export function FeatureDialog({ layer, featureId, readOnly, onClose, onSaved, dr
                       <Button size="sm" variant="secondary" isDisabled={!draft.length} onPress={() => draw(draft.slice(0, -1))}><ArrowRotateLeft className="size-4" />{t('draw.undo')}</Button>
                       <Button size="sm" variant="secondary" isDisabled={!draft.length} onPress={() => draw([])}><TrashBin className="size-4" />{t('draw.clear')}</Button>
                       <Button size="sm" onPress={() => setDraft(null)}><Check className="size-4" />{t('draw.done')}</Button>
-                      <span className="text-xs text-muted tabular-nums">{t(layer.geomType === 'Polygon' ? 'draw.hintPolygon' : 'draw.hintLine', { n: draft.length })}</span>
+                      <span aria-live="polite" className={cn('text-xs tabular-nums', problem ? 'text-danger' : 'text-muted')}>
+                        {problem ? t(`draw.${problem}`) : t(layer.geomType === 'Polygon' ? 'draw.hintPolygon' : 'draw.hintLine', { n: draft.length })}
+                      </span>
                     </>
                   )}
                 </div>
@@ -300,7 +319,7 @@ export function FeatureDialog({ layer, featureId, readOnly, onClose, onSaved, dr
                   {!readOnly && layer.geomType === 'Point' && <ClickToPlace onPick={(p) => setGeomText(`POINT (${p[0]} ${p[1]})`)} />}
                   {draft && (
                     <>
-                      <ClickToPlace crosshair onPick={(p) => draw([...draft, p])} />
+                      <ClickToPlace crosshair onPick={pick} />
                       {draft.map((p, i) => (
                         <MapMarker key={`${i}-${p[0]}-${p[1]}`} longitude={p[0]} latitude={p[1]}>
                           <MarkerContent><span className="block size-2.5 rounded-full border-2 border-white shadow" style={{ backgroundColor: layer.style.color }} /></MarkerContent>

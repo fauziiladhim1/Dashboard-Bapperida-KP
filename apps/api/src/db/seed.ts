@@ -214,10 +214,10 @@ export const LAYERS: LayerSeed[] = [
     sumber: 'Dinas Perhubungan Kulon Progo (DISHUB_LPJU, Mei 2025)',
   },
   MISKIN_LAYER,
-  // Alat gambar halaman Peta: penanda lokasi (titik/garis/area) yang digambar editor di atas peta, dilihat semua pengguna.
+  // Alat gambar halaman Peta: catatan rencana (titik/garis/area) yang digambar editor di atas peta, dilihat semua pengguna.
   ...(['Point', 'LineString', 'Polygon'] as const).map((geomType, i): LayerSeed => ({
-    slug: ['catatan-titik', 'catatan-garis', 'catatan-area'][i]!, name: ['Penanda Titik', 'Penanda Garis', 'Penanda Area'][i]!,
-    category: 'Penanda Lokasi', geomType, visible: true, style: { color: ['#4F46E5', '#C026D3', '#0D9488'][i]! },
+    slug: ['catatan-titik', 'catatan-garis', 'catatan-area'][i]!, name: ['Rencana Titik', 'Rencana Garis', 'Rencana Area'][i]!,
+    category: 'Catatan Rencana', geomType, visible: true, style: { color: ['#4F46E5', '#C026D3', '#0D9488'][i]! },
     fields: [text('judul', 'Judul', true), text('catatan', 'Catatan')],
   })),
 ];

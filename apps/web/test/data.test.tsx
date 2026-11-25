@@ -190,6 +190,14 @@ describe('Data: gambar geometri di peta form fitur', () => {
     expect(wkt).toHaveValue('');
     click(110.1, -7.8);
     click(110.4, -7.9);
+    click(110.4, -7.7);
+    click(110.2, -7.95); // ruas ini memotong ruas pertama: ditolak dengan pesan
+    expect(within(dialog).getByText('Titik ditolak: garis saling memotong')).toBeInTheDocument();
+    click(110.4, -7.7); // klik ulang titik terakhir = selesai
+    expect(within(dialog).queryByRole('button', { name: 'Selesai' })).not.toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Gambar garis' }));
+    click(110.1, -7.8);
+    click(110.4, -7.9);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Selesai' }));
     // Selesai: klik peta tidak menambah titik lagi.
     click(110.5, -7.9);

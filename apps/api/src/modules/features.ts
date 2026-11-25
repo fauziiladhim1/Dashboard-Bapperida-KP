@@ -56,6 +56,16 @@ export const assertGeomType = (layer: Layer, geometry: Geometry): void => {
     throw new HttpError(400, `Geometri ${geometry.type} tidak sesuai layer (${layer.geomType})`);
 };
 
+/**
+ * Tipe sesuai layer DAN tidak runtuh jadi kosong setelah dirapikan (ST_MakeValid): mis. area yang semua titiknya segaris
+ * atau garis dua titik sama. Tanpa ini fitur tersimpan tanpa bentuk dan tak pernah tampil di peta.
+ */
+const assertDrawable = async (sql: Sql, layer: Layer, geometry: Geometry) => {
+  assertGeomType(layer, geometry);
+  const [r] = await sql<{ empty: boolean }[]>`SELECT ST_IsEmpty(${geomFrom(sql, geometry, layer.geomType)}) AS empty`;
+  if (r!.empty) throw new HttpError(400, 'Geometri tidak sah: luas/panjangnya nol (titik segaris atau berimpit)');
+};
+
 /** Validasi atribut terhadap skema field layer. Atribut tambahan dari SHP tetap disimpan. */
 export const validateProperties = (layer: Layer, props: Props, partial = false): Props => {
   const errors: string[] = [];
@@ -362,8 +372,8 @@ export const featuresRouter = (sql: Sql, uploadDir: string): Router => {
     assertWritable(layer);
     const { properties: raw, geometry, tahunData: tahun } = createSchema.parse(req.body);
     const properties = ownProps(layer.slug, raw);
-    assertGeomType(layer, geometry);
     validateProperties(layer, properties);
+    await assertDrawable(sql, layer, geometry);
     const [row] = await sql<{ id: string }[]>`
       INSERT INTO features (layer_id, properties, geom, created_by, updated_by, tahun_data)
       VALUES (${layer.id}, ${sql.json(properties)}::jsonb, ${geomFrom(sql, geometry, layer.geomType)}, ${req.user!.id}, ${req.user!.id},
@@ -380,7 +390,7 @@ export const featuresRouter = (sql: Sql, uploadDir: string): Router => {
     const current = await loadFeature(sql, id);
     const layer = await getLayer(sql, current.slug);
     const properties = body.properties ? validateProperties(layer, ownProps(layer.slug, { ...current.properties, ...body.properties })) : undefined;
-    if (body.geometry) assertGeomType(layer, body.geometry);
+    if (body.geometry) await assertDrawable(sql, layer, body.geometry);
     const { count } = await sql`
       UPDATE features SET
         properties = coalesce(${properties ? sql.json(properties) : null}::jsonb, properties),
