@@ -4,7 +4,7 @@ import shpwrite from '@mapbox/shp-write';
 import JSZip from 'jszip';
 import sharp from 'sharp';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { inspectZip, normalizeFeatures } from '../src/modules/upload.js';
+import { applyMap, inspectZip, normalizeFeatures } from '../src/modules/upload.js';
 import { API, env, loginAs, makeApp, sql } from './helpers.js';
 
 type Agent = Awaited<ReturnType<typeof loginAs>>['agent'];
@@ -54,6 +54,37 @@ describe('upload GeoJSON', () => {
     expect((await upload('pju', json({ type: 'Point', coordinates: [110, -7] }), '', 'a.geojson').expect(400)).body.error).toMatch(/FeatureCollection/);
     expect((await upload('pju', json({ type: 'FeatureCollection', features: [] }), '', 'a.geojson').expect(400)).body.error).toBe('GeoJSON tidak berisi fitur');
     await upload('pju', json(pjuGeojson), '', 'a.txt').expect(400);
+  });
+
+  it('pemetaan kolom (map) + atribut turunan: kecamatan, kapanewon, panjang dari geometri', async () => {
+    const [batas] = await sql<{ id: number }[]>`SELECT id FROM layers WHERE slug = 'batas-administrasi'`;
+    const kec = await sql<{ id: number }[]>`
+      INSERT INTO features (layer_id, properties, geom) VALUES
+        (${batas!.id}, '{"kecamatan":"UjiA","kalurahan":"A1"}', ST_Multi(ST_MakeEnvelope(120.0, -8.0, 120.01, -7.99, 4326))),
+        (${batas!.id}, '{"kecamatan":"UjiB","kalurahan":"B1"}', ST_Multi(ST_MakeEnvelope(120.01, -8.0, 120.02, -7.99, 4326)))
+      RETURNING id`;
+    // Garis 0,015° melintasi dua kecamatan (lebih panjang di UjiA); LEN = 0 -> panjang dihitung ulang.
+    const road = { type: 'FeatureCollection', features: [{ type: 'Feature', properties: { Nama: 'Ruas Uji', LEN: 0, Sampah: 'x' },
+      geometry: { type: 'LineString', coordinates: [[120.0, -7.995], [120.015, -7.995]] } }] };
+    const map = encodeURIComponent(JSON.stringify({ nama_ruas: 'Nama', panjang_km: 'LEN', tidak_ada: 'X' }));
+    await upload('jalan-nasional', json(road), `?map=${map}`, 'r.geojson').expect(201);
+    const [row] = await sql<{ id: number; p: Record<string, unknown> }[]>`
+      SELECT f.id, f.properties AS p FROM features f JOIN layers l ON l.id = f.layer_id AND l.slug = 'jalan-nasional'
+      WHERE f.properties->>'nama_ruas' = 'Ruas Uji'`;
+    expect(row!.p).toMatchObject({ nama_ruas: 'Ruas Uji', kapanewon: 'UjiA, UjiB', kecamatan: 'UjiA' });
+    expect(row!.p).not.toHaveProperty('Sampah');
+    expect(row!.p.panjang_km as number).toBeCloseTo(1.653, 1); // 0,015° bujur di 8° LS
+    // Nilai dari berkas tidak ditimpa; map rusak ditolak.
+    const keep = { ...road, features: [{ ...road.features[0]!, properties: { Nama: 'Ruas Dua', LEN: 9 } }] };
+    await upload('jalan-nasional', json(keep), `?map=${map}`, 'r.geojson').expect(201);
+    const [two] = await sql<{ p: Record<string, unknown> }[]>`SELECT properties AS p FROM features WHERE properties->>'nama_ruas' = 'Ruas Dua'`;
+    expect(two!.p.panjang_km).toBe(9);
+    await upload('jalan-nasional', json(road), '?map=%7Bbukan', 'r.geojson').expect(400);
+    // Fitur tanpa atribut / kolom tak ada di fitur: field terpetakan jadi null.
+    const bare = [{ type: 'Feature' as const, geometry: null, properties: null }];
+    applyMap(bare, { nama_ruas: 'Nama' }, { fields: [{ key: 'nama_ruas', label: 'Nama', type: 'text' }] } as never);
+    expect(bare[0]!.properties).toEqual({ nama_ruas: null });
+    await sql`DELETE FROM features_all WHERE properties->>'nama_ruas' IN ('Ruas Uji', 'Ruas Dua') OR id = ANY(${kec.map((k) => k.id)}::int[])`;
   });
 });
 

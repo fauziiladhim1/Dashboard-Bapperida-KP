@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { FileZipper } from '@gravity-ui/icons';
-import { Alert, Button, Card, Label, NumberField, ProgressBar } from '@heroui/react';
+import { Alert, Button, Card, Label, ListBox, NumberField, ProgressBar, Select } from '@heroui/react';
 import { useEffect, useId, useState } from 'react';
 import { Map, MapGeoJSON, useMap } from '@/components/ui/map';
 import { endpoints, type UploadSummary } from '@/lib/api';
@@ -17,6 +17,19 @@ import { useT } from '@/lib/prefs';
 
 type Props = { layer: Layer; onClose: () => void; onSaved: () => unknown };
 
+/** Field yang server isi dari geometri bila kosong (sama dengan DERIVED di API). */
+export const DERIVED = new Set(['kecamatan', 'kalurahan', 'kapanewon', 'panjang_km', 'luas_ha']);
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/** Tebakan awal pemetaan: kolom berkas yang namanya sama dengan kunci atau label field (abaikan huruf besar & tanda baca). */
+export const suggestMap = (fields: Layer['fields'], columns: string[]): Record<string, string> =>
+  Object.fromEntries(fields.flatMap((f) => {
+    const col = columns.find((c) => norm(c) === norm(f.key) || norm(c) === norm(f.label));
+    return col ? [[f.key, col]] : [];
+  }));
+
+const NONE = '__none__';
+
 /** Alur tiga langkah: pilih, periksa (dry run + pratinjau peta), lalu simpan. */
 export function UploadDialog({ layer, onClose, onSaved }: Props) {
   const t = useT();
@@ -25,15 +38,19 @@ export function UploadDialog({ layer, onClose, onSaved }: Props) {
   // Tahun keadaan data untuk semua fitur di berkas (kolom tahun_data); default tahun berjalan.
   const [tahun, setTahun] = useState(new Date().getFullYear());
   const [summary, setSummary] = useState<UploadSummary | null>(null);
+  const [map, setMap] = useState<Record<string, string>>({});
   const [drag, setDrag] = useState(false);
   const pick = (f?: File) => {
     setFile(f ?? null);
     setSummary(null);
   };
 
-  const check = useMutation({ mutationFn: (f: File) => endpoints.uploadShp(layer.slug, f, mode, true), onSuccess: setSummary });
+  const check = useMutation({
+    mutationFn: (f: File) => endpoints.uploadShp(layer.slug, f, mode, true),
+    onSuccess: (s) => { setSummary(s); setMap(suggestMap(layer.fields, s.columns)); },
+  });
   const commit = useMutation({
-    mutationFn: (f: File) => endpoints.uploadShp(layer.slug, f, mode, false, tahun),
+    mutationFn: (f: File) => endpoints.uploadShp(layer.slug, f, mode, false, tahun, map),
     onSuccess: async (r) => {
       await onSaved();
       onClose();
@@ -106,17 +123,21 @@ export function UploadDialog({ layer, onClose, onSaved }: Props) {
               <Stat label={t('up.noGeom')} value={fmt(summary.skipped)} />
               <Stat label={t('up.columns')} value={fmt(summary.columns.length)} />
             </div>
-            {(!summary.hasPrj || summary.missingFields.length > 0 || mode === 'replace') && (
+            {(!summary.hasPrj || mode === 'replace') && (
               <Alert status="warning">
                 <Alert.Indicator />
                 <Alert.Content>
                   <ul className="flex flex-col gap-1 text-xs">
                     {!summary.hasPrj && <li>{t('up.noPrj')}</li>}
-                    {summary.missingFields.length > 0 && <li>{t('up.missing', { cols: summary.missingFields.join(', ') })}</li>}
                     {mode === 'replace' && <li>{t('up.replaceWarn', { n: fmt(layer.featureCount) })}</li>}
                   </ul>
                 </Alert.Content>
               </Alert>
+            )}
+            <ColumnMap fields={layer.fields} columns={summary.columns} sample={summary.sample} value={map} onChange={setMap} />
+            {/* Kolom wajib tanpa pasangan: fitur tetap tersimpan, tapi isiannya kosong sampai dilengkapi di tabel Data. */}
+            {layer.fields.some((f) => f.required && !map[f.key] && !DERIVED.has(f.key)) && (
+              <p className="text-xs text-warning">{t('up.requiredEmpty', { cols: layer.fields.filter((f) => f.required && !map[f.key] && !DERIVED.has(f.key)).map((f) => f.label).join(', ') })}</p>
             )}
             {summary.sample && (
               <div className="h-60 overflow-hidden rounded-xl">
@@ -132,6 +153,61 @@ export function UploadDialog({ layer, onClose, onSaved }: Props) {
 
         {error && <ErrorAlert message={error.message} />}
     </AppModal>
+  );
+}
+
+/** Pencocokan kolom: tiap field layer -> kolom berkas, dengan contoh nilai dari fitur pertama yang terisi. */
+export function ColumnMap({ fields, columns, sample, value, onChange }: {
+  fields: Layer['fields']; columns: string[]; sample?: GeoJSON.FeatureCollection;
+  value: Record<string, string>; onChange: (m: Record<string, string>) => void;
+}) {
+  const t = useT();
+  if (!fields.length) return null;
+  const example = (col?: string) => {
+    if (!col) return undefined;
+    const v = sample?.features.map((f) => f.properties?.[col]).find((x) => x !== null && x !== undefined && x !== '');
+    return v === undefined ? undefined : String(v);
+  };
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-sm font-medium text-heading">{t('up.mapTitle')}</p>
+        <p className="text-xs text-muted tabular-nums">{t('up.mapCount', { n: Object.keys(value).length, total: fields.length })}</p>
+      </div>
+      <div className="divide-y divide-separator overflow-hidden rounded-xl border border-separator">
+        {fields.map((f) => {
+          const col = value[f.key];
+          const auto = !col && DERIVED.has(f.key);
+          const items = [{ id: NONE, name: auto ? t('up.mapAuto') : t('up.mapNone') }, ...columns.map((c) => ({ id: c, name: c }))];
+          const ex = example(col);
+          return (
+            <div key={f.key} className="grid grid-cols-1 items-center gap-x-3 gap-y-1 px-3 py-2 sm:grid-cols-[minmax(0,10rem)_minmax(0,12rem)_minmax(0,1fr)]">
+              <span className="text-sm text-heading break-words">{f.label}{f.required && <span className="text-danger" aria-hidden> *</span>}</span>
+              <Select aria-label={t('up.mapFor', { field: f.label })} selectedKey={col ?? NONE}
+                onSelectionChange={(k) => {
+                  const { [f.key]: _drop, ...rest } = value;
+                  onChange(k === null || k === NONE ? rest : { ...rest, [f.key]: String(k) });
+                }}>
+                <Select.Trigger className={cn('min-h-9 text-sm', !col && 'text-muted')}>
+                  <Select.Value className="truncate" />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox items={items}>
+                    {(it: { id: string; name: string }) => (
+                      <ListBox.Item id={it.id} textValue={it.name}>{it.name}<ListBox.ItemIndicator /></ListBox.Item>
+                    )}
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+              <span className={cn('truncate text-xs', ex ? 'text-foreground' : 'text-muted')} title={ex}>
+                {ex ?? (auto ? t('up.mapAutoHint') : col ? t('up.mapEmpty') : '')}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

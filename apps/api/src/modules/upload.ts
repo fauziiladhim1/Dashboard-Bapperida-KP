@@ -14,7 +14,7 @@ import { baseGeomType, geometrySchema, idParam } from '../lib/schemas.js';
 import { EDITORS, requireRole } from '../middleware/auth.js';
 import { removeFiles, takeMedia } from '../lib/media.js';
 import { audit } from './audit.js';
-import { validateProperties } from './features.js';
+import { KECAMATAN_EXPR, validateProperties } from './features.js';
 import { assertWritable, getLayer, type Layer } from './layers.js';
 import { parseRuasSk } from '../db/parse.js';
 import { JALAN_SLUG } from './tabular.js';
@@ -141,16 +141,62 @@ export const normalizeFeatures = (features: ShpFeature[], geomType: string, laye
 
 type Row = { properties: Record<string, unknown>; geometry: unknown };
 
-/** Insert massal per 500 fitur; geometri dirapikan (2D, valid, multi) sesuai tipe layer. */
+/** Insert massal per 500 fitur; geometri dirapikan (2D, valid, multi) sesuai tipe layer. Mengembalikan id fitur baru. */
 export const insertFeatures = async (tx: Sql, layer: { id: number; geomType: string }, rows: Row[], userId: number | null, tahun?: number) => {
   const code = { Point: 1, LineString: 2, Polygon: 3 }[layer.geomType];
+  const ids: number[] = [];
   for (let i = 0; i < rows.length; i += CHUNK) {
-    await tx`
+    const out = await tx<{ id: number }[]>`
       INSERT INTO features (layer_id, properties, geom, created_by, updated_by, tahun_data)
       SELECT ${layer.id}, e->'properties',
              ST_Multi(ST_CollectionExtract(ST_MakeValid(ST_Force2D(ST_SetSRID(ST_GeomFromGeoJSON(e->>'geometry'), 4326))), ${code!})),
              ${userId}, ${userId}, coalesce(${tahun ?? null}::int, extract(year FROM now())::int)
-      FROM jsonb_array_elements(${tx.json(rows.slice(i, i + CHUNK) as never)}::jsonb) e`;
+      FROM jsonb_array_elements(${tx.json(rows.slice(i, i + CHUNK) as never)}::jsonb) e
+      RETURNING id`;
+    ids.push(...out.map((r) => r.id));
+  }
+  return ids;
+};
+
+/** Atribut yang bisa diturunkan dari geometri; diisi setelah unggah bila layer punya field-nya dan nilainya kosong. */
+export const DERIVED = ['kecamatan', 'kalurahan', 'kapanewon', 'panjang_km', 'luas_ha'] as const;
+
+/**
+ * Isi atribut turunan fitur baru: kecamatan/kalurahan dari poligon batas terdekat ke titik-di-permukaan fitur, kapanewon =
+ * kecamatan yang dilalui (terpanjang dulu), panjang (km) garis dan luas (ha) area dari geografi. Nilai kosong/0 saja yang diisi.
+ */
+export const fillDerived = async (tx: Sql, layer: Pick<Layer, 'fields'>, ids: number[]) => {
+  // `kecamatan` selalu diisi: filter kecamatan menu Data & statistik membacanya walau layer tidak punya field-nya.
+  const want = DERIVED.filter((k) => k === 'kecamatan' || layer.fields.some((f) => f.key === k));
+  await tx`
+    WITH batas AS (SELECT a.* FROM features a JOIN layers l ON l.id = a.layer_id AND l.slug = 'batas-administrasi'),
+    d AS (
+      SELECT x.id, jsonb_build_object('kecamatan', coalesce(k.top, w.kec), 'kalurahan', w.kal, 'kapanewon', k.names,
+        'panjang_km', CASE WHEN GeometryType(x.geom) LIKE '%LINE%' THEN round((ST_Length(x.geom::geography) / 1000)::numeric, 3) END,
+        'luas_ha', CASE WHEN GeometryType(x.geom) LIKE '%POLYGON%' THEN round((ST_Area(x.geom::geography) / 1e4)::numeric, 2) END) AS v
+      FROM features_all x
+      LEFT JOIN LATERAL (SELECT ${tx.unsafe(KECAMATAN_EXPR)} AS kec, a.properties->>'kalurahan' AS kal FROM batas a
+                         ORDER BY a.geom <-> ST_PointOnSurface(x.geom) LIMIT 1) w ON true
+      -- Garis: kecamatan = yang dilalui terpanjang (titik/area: ST_Length = 0, jadi top NULL dan pakai titik-di-permukaan).
+      LEFT JOIN LATERAL (SELECT string_agg(s.kec, ', ' ORDER BY s.len DESC) AS names,
+                                (array_agg(s.kec ORDER BY s.len DESC) FILTER (WHERE s.len > 0))[1] AS top FROM (
+                           SELECT ${tx.unsafe(KECAMATAN_EXPR)} AS kec, sum(ST_Length(ST_Intersection(a.geom, x.geom)::geography)) AS len
+                           FROM batas a WHERE ST_Intersects(a.geom, x.geom) GROUP BY 1) s) k ON true
+      WHERE x.id = ANY(${ids}::int[])
+    )
+    UPDATE features_all f SET properties = f.properties || coalesce((
+      SELECT jsonb_object_agg(e.key, e.value) FROM jsonb_each(d.v) e
+      WHERE e.key = ANY(${want as unknown as string[]}::text[]) AND e.value <> 'null'::jsonb
+        AND coalesce(nullif(f.properties->>e.key, ''), '0') IN ('0', '0.0')), '{}'::jsonb)
+    FROM d WHERE f.id = d.id`;
+};
+
+/** Pemetaan kolom berkas -> field layer (`{"nama_ruas": "Nama_Ruas"}`); field yang tidak dipetakan dibuang. */
+export const applyMap = (features: ShpFeature[], map: Record<string, string>, layer: Pick<Layer, 'fields'>) => {
+  const keys = layer.fields.map((f) => f.key).filter((k) => map[k]);
+  for (const f of features) {
+    const raw = f.properties ?? {};
+    f.properties = Object.fromEntries(keys.map((k) => [k, raw[map[k]!] ?? null]));
   }
 };
 
@@ -159,6 +205,13 @@ const uploadQuery = z.object({
   dryRun: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   /** Tahun keadaan data semua fitur unggahan; kosong = tahun berjalan. */
   tahun: z.coerce.number().int().min(1900).max(2100).optional(),
+  /** JSON `{field layer: kolom berkas}`; kosong = atribut berkas disimpan apa adanya. */
+  map: z.string().max(4000).optional().transform((s, ctx) => {
+    if (!s) return undefined;
+    const r = z.record(z.string(), z.string().max(200)).safeParse((() => { try { return JSON.parse(s); } catch { return null; } })());
+    if (!r.success) ctx.addIssue({ code: 'custom', message: 'Parameter map harus JSON {field: kolom}' });
+    return r.data;
+  }),
 });
 
 export const uploadRouter = (sql: Sql, uploadDir: string): Router => {
@@ -169,7 +222,7 @@ export const uploadRouter = (sql: Sql, uploadDir: string): Router => {
   router.post('/layers/:slug/upload', editor, memory(50, /\.(zip|geojson|json)$/i), async (req, res) => {
     const layer = await getLayer(sql, req.params.slug);
     assertWritable(layer);
-    const { mode, dryRun, tahun } = uploadQuery.parse(req.query);
+    const { mode, dryRun, tahun, map } = uploadQuery.parse(req.query);
     const file = requireFile(req.file);
     const geojson = !/\.zip$/i.test(file.originalname);
     const { hasPrj } = geojson ? { hasPrj: true } : await inspectZip(file.buffer);
@@ -178,6 +231,7 @@ export const uploadRouter = (sql: Sql, uploadDir: string): Router => {
     })) as { features: ShpFeature[] };
     // SHP SK mentah (kolom Nama_Ruas, Panjang, ...) dipetakan ke atribut layer, sama seperti skrip import.
     if (layer.slug === JALAN_SLUG) for (const f of parsed.features) if (f.properties && 'Nama_Ruas' in f.properties) f.properties = parseRuasSk(f.properties);
+    if (map) applyMap(parsed.features, map, layer);
     const { valid, errors, skipped } = normalizeFeatures(parsed.features, layer.geomType, layer);
     if (errors.length) throw new HttpError(400, `${errors.length} fitur tidak valid. ${errors.slice(0, 5).join('; ')}`);
     if (!valid.length) throw new HttpError(400, geojson ? 'GeoJSON tidak berisi fitur' : 'Shapefile tidak berisi fitur');
@@ -200,7 +254,8 @@ export const uploadRouter = (sql: Sql, uploadDir: string): Router => {
         taken = await takeMedia(tx as unknown as Sql, tx`f.layer_id = ${layer.id}`);
         await tx`DELETE FROM features_all WHERE layer_id = ${layer.id}`;
       }
-      await insertFeatures(tx as unknown as Sql, layer, valid, req.user!.id, tahun);
+      const ids = await insertFeatures(tx as unknown as Sql, layer, valid, req.user!.id, tahun);
+      await fillDerived(tx as unknown as Sql, layer, ids);
       return taken;
     });
     await removeFiles(uploadDir, files);

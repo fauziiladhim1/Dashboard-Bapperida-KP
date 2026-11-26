@@ -78,10 +78,10 @@ export const endpoints = {
   purgeFeature: (id: number | string) => api<void>(`/features/${id}/purge`, { method: 'DELETE' }),
   exportUrl: (slug: string, format: 'geojson' | 'csv' | 'shp', kecamatan?: string) => `/api/v1/layers/${slug}/export${qs({ format, kecamatan })}`,
 
-  uploadShp: (slug: string, file: File, mode: 'append' | 'replace', dryRun: boolean, tahun?: number) => {
+  uploadShp: (slug: string, file: File, mode: 'append' | 'replace', dryRun: boolean, tahun?: number, map?: Record<string, string>) => {
     const body = new FormData();
     body.append('file', file);
-    return api<UploadSummary>(`/layers/${slug}/upload${qs({ mode, dryRun: String(dryRun), tahun: tahun ? String(tahun) : undefined })}`, { method: 'POST', body });
+    return api<UploadSummary>(`/layers/${slug}/upload${qs({ mode, dryRun: String(dryRun), tahun: tahun ? String(tahun) : undefined, map: map && JSON.stringify(map) })}`, { method: 'POST', body });
   },
   uploadMedia: (featureId: number | string, file: File, meta: Partial<MediaMeta> = {}) => {
     const body = new FormData();

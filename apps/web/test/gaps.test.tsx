@@ -8,6 +8,7 @@ import { BUILDINGS_3D, Buildings3D } from '@/components/map/Buildings3D';
 import { HoverTip } from '@/components/map/MapOverlays';
 import { VectorLayers } from '@/components/map/VectorLayers';
 import { Breakdown, HazardCard, incomparableYears, Kpi, RankBars, RoadOverview, Spark, TimeSeries } from '@/features/overview/widgets';
+import { ColumnMap, suggestMap } from '@/features/data/UploadDialog';
 import { PrefsProvider } from '@/lib/prefs';
 import { fakeMap } from './map-mock';
 import { choose, LAYERS, mockApi } from './utils';
@@ -148,5 +149,21 @@ describe('incomparableYears', () => {
     expect([...incomparableYears([{ tahun: 2024, v: 9821 }, { tahun: 2025, v: 71432 }, { tahun: 2026, v: 67250 }])]).toEqual([2024]);
     expect(incomparableYears([{ tahun: 2024, v: 0 }, { tahun: 2025, v: 3 }]).size).toBe(0);
     expect(incomparableYears([{ tahun: 2024, v: 10 }, { tahun: 2025, v: null }, { tahun: 2026, v: 12 }]).size).toBe(0);
+  });
+});
+
+describe('unggah: pencocokan kolom', () => {
+  it('suggestMap mencocokkan kunci/label tanpa peduli huruf besar & tanda baca', () => {
+    const fields = [{ key: 'nama_ruas', label: 'Nama Ruas', type: 'text' }, { key: 'fungsi', label: 'Fungsi Jalan', type: 'text' }, { key: 'x', label: 'X', type: 'text' }] as never;
+    expect(suggestMap(fields, ['NAMA_RUAS', 'Fungsi jalan', 'LENGTH'])).toEqual({ nama_ruas: 'NAMA_RUAS', fungsi: 'Fungsi jalan' });
+  });
+
+  it('field turunan tanpa kolom = otomatis dari peta; tanpa field tidak tampil', () => {
+    const kec = [{ key: 'kecamatan', label: 'Kecamatan', type: 'text' }] as never;
+    const { unmount } = bare(<ColumnMap fields={kec} columns={['A']} value={{}} onChange={() => {}} />);
+    expect(screen.getByText('Dihitung dari geometri saat disimpan')).toBeInTheDocument();
+    unmount();
+    const { container } = bare(<ColumnMap fields={[]} columns={[]} value={{}} onChange={() => {}} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

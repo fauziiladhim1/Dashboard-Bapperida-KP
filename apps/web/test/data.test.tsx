@@ -474,7 +474,10 @@ describe('Data: unggah SHP & layer baru', () => {
       ...base(),
       'POST /layers/jalan-kabupaten/upload': ({ url }: { url: string }) =>
         url.includes('dryRun=true')
-          ? { count: 1200, skipped: 3, hasPrj: false, columns: ['nama_ruas'], missingFields: ['kondisi'], sample: { type: 'FeatureCollection', features: [] } }
+          ? { count: 1200, skipped: 3, hasPrj: false, columns: ['Nama_Ruas', 'KONDISI_X'], missingFields: ['kondisi'], sample: { type: 'FeatureCollection', features: [
+            { type: 'Feature', geometry: null, properties: { Nama_Ruas: '', KONDISI_X: null } },
+            { type: 'Feature', geometry: null, properties: { Nama_Ruas: 'Jl. Wates' } },
+          ] } }
           : { count: 1200 },
     });
     await open();
@@ -487,15 +490,21 @@ describe('Data: unggah SHP & layer baru', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Periksa file' }));
     expect(await within(dialog).findByText('1.200')).toBeInTheDocument();
     expect(within(dialog).getByText(/Tidak ada file .prj/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/Kolom belum ada di file: kondisi/)).toBeInTheDocument();
     expect(within(dialog).getByText(/menghapus 3 fitur lama/)).toBeInTheDocument();
     expect(within(dialog).getByTestId('geojson')).toBeInTheDocument();
+    // Pencocokan kolom: Nama_Ruas otomatis ke nama_ruas (contoh nilai dari fitur pertama yang terisi).
+    expect(within(dialog).getByText('1 dari 3 kolom terpasang')).toBeInTheDocument();
+    expect(within(dialog).getByText('Jl. Wates')).toBeInTheDocument();
+    await choose('Kolom berkas untuk Kondisi', 'KONDISI_X');
+    expect(within(dialog).getByText('Kolom ini kosong di contoh')).toBeInTheDocument();
+    await choose('Kolom berkas untuk Nama Ruas', 'Tidak diisi');
+    expect(within(dialog).getByText(/Kolom wajib belum dipasangkan: Nama Ruas/)).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole('button', { name: /Simpan 1.200 fitur/ }));
     await userEvent.click(within(await screen.findByRole('dialog', { name: 'Unggahan selesai' })).getByRole('button', { name: 'Oke' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(calls.filter((c) => c.url.includes('/upload')).map((c) => c.url)).toEqual([
       '/layers/jalan-kabupaten/upload?mode=replace&dryRun=true',
-      `/layers/jalan-kabupaten/upload?mode=replace&dryRun=false&tahun=${new Date().getFullYear()}`,
+      `/layers/jalan-kabupaten/upload?mode=replace&dryRun=false&tahun=${new Date().getFullYear()}&${new URLSearchParams({ map: '{"kondisi":"KONDISI_X"}' })}`,
     ]);
   });
 
