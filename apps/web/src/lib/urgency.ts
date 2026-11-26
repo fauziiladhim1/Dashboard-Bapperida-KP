@@ -6,6 +6,15 @@ export const URGENCIES: Urgency[] = ['tinggi', 'sedang', 'rendah'];
 /** Layer berkondisi (punya field `kondisi`): hanya ini yang memakai dokumentasi foto & urgensi; data statis tidak. */
 export const hasDocs = (layer: Pick<Layer, 'fields'>) => layer.fields.some((f) => f.key === 'kondisi');
 
+/**
+ * Layer yang butuh keputusan tindak lanjut: datanya berubah dan bisa memicu tindakan, yaitu punya field aturan urgensi
+ * (kondisi, jenis lampu; dari pengaturan), field `kesesuaian` tata ruang, atau layer Catatan Rencana. Data rujukan statis
+ * (batas administrasi, bahaya InaRISK, jalan nasional/provinsi, tutupan lahan, ...) tidak.
+ */
+export const needsDecision = (layer: Pick<Layer, 'fields' | 'category'>, rules: UrgencyRules | undefined) =>
+  layer.category === 'Catatan Rencana'
+  || layer.fields.some((f) => f.key === 'kesesuaian' || (rules?.aturan ?? []).some((r) => r.field === f.key));
+
 /** Aturan urgensi dari tabel `pengaturan` (key `urgensi`, `GET /settings`). Sama persis dengan SQL `GET /alerts`. */
 export type UrgencyRules = {
   abaikan: string;

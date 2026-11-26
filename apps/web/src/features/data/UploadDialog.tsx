@@ -30,6 +30,19 @@ export const suggestMap = (fields: Layer['fields'], columns: string[]): Record<s
 
 const NONE = '__none__';
 
+/**
+ * Nilai contoh yang akan ditolak server per field terpetakan: angka yang bukan angka, pilihan di luar opsi. Dihitung dari
+ * contoh dry run (maks 300 fitur), jadi tombol simpan dikunci sebelum server menolak seluruh unggahan.
+ */
+export const mapIssues = (fields: Layer['fields'], map: Record<string, string>, sample?: GeoJSON.FeatureCollection) =>
+  Object.fromEntries(fields.flatMap((f) => {
+    const col = map[f.key];
+    if (!col || (f.type !== 'number' && !(f.type === 'select' && f.options?.length))) return [];
+    const bad = (sample?.features ?? []).map((x) => x.properties?.[col]).filter((v) => v !== null && v !== undefined && v !== ''
+      && (f.type === 'number' ? !Number.isFinite(Number(v)) : !f.options!.includes(String(v)))).length;
+    return bad ? [[f.key, bad]] : [];
+  })) as Record<string, number>;
+
 /** Alur tiga langkah: pilih, periksa (dry run + pratinjau peta), lalu simpan. */
 export function UploadDialog({ layer, onClose, onSaved }: Props) {
   const t = useT();
@@ -64,7 +77,7 @@ export function UploadDialog({ layer, onClose, onSaved }: Props) {
       footer={<>
         <Button variant="tertiary" onPress={onClose}>{t('common.cancel')}</Button>
         {summary ? (
-          <Button isDisabled={commit.isPending} onPress={() => commit.mutate(file!)}>{commit.isPending ? t('common.saving') : t('up.save', { n: fmt(summary.count) })}</Button>
+          <Button isDisabled={commit.isPending || Object.keys(mapIssues(layer.fields, map, summary.sample)).length > 0} onPress={() => commit.mutate(file!)}>{commit.isPending ? t('common.saving') : t('up.save', { n: fmt(summary.count) })}</Button>
         ) : (
           <Button isDisabled={!file || check.isPending} onPress={() => check.mutate(file!)}>{check.isPending ? t('up.checking') : t('up.check')}</Button>
         )}
@@ -163,6 +176,7 @@ export function ColumnMap({ fields, columns, sample, value, onChange }: {
 }) {
   const t = useT();
   if (!fields.length) return null;
+  const issues = mapIssues(fields, value, sample);
   const example = (col?: string) => {
     if (!col) return undefined;
     const v = sample?.features.map((f) => f.properties?.[col]).find((x) => x !== null && x !== undefined && x !== '');
@@ -200,9 +214,15 @@ export function ColumnMap({ fields, columns, sample, value, onChange }: {
                   </ListBox>
                 </Select.Popover>
               </Select>
-              <span className={cn('truncate text-xs', ex ? 'text-foreground' : 'text-muted')} title={ex}>
-                {ex ?? (auto ? t('up.mapAutoHint') : col ? t('up.mapEmpty') : '')}
-              </span>
+              {issues[f.key] ? (
+                <span className="text-xs text-danger">
+                  {t(f.type === 'number' ? 'up.mapNotNumber' : 'up.mapNotOption', { n: fmt(issues[f.key]!), opts: (f.options ?? []).join(', ') })}
+                </span>
+              ) : (
+                <span className={cn('truncate text-xs', ex ? 'text-foreground' : 'text-muted')} title={ex}>
+                  {ex ?? (auto ? t('up.mapAutoHint') : col ? t('up.mapEmpty') : '')}
+                </span>
+              )}
             </div>
           );
         })}

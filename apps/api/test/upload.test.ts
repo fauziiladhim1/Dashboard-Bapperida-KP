@@ -262,7 +262,10 @@ describe('media', () => {
     const { agent: admin, id: adminId } = await loginAs('superadmin');
     await admin.delete(`${API}/features/${one.id}/purge`).expect(404); // masih aktif, bukan di tempat sampah
     await admin.delete(`${API}/features/${a.id}/purge`).expect(204);
-    await admin.delete(`${API}/features/${b.id}/purge`).expect(204);
+    // Hapus permanen massal: editor ditolak; fitur aktif (one) di daftar ids tidak ikut terhapus.
+    await editor.post(`${API}/layers/pju/features/bulk-purge`).send({ ids: [Number(b.id)] }).expect(403);
+    expect((await admin.post(`${API}/layers/pju/features/bulk-purge`).send({ ids: [Number(b.id), Number(one.id)] }).expect(200)).body).toEqual({ purged: 1 });
+    expect(await listed(one.id)).toBe(true);
     expect(exists([...a.files, ...b.files])).toEqual([false, false, false, false]);
     expect((await trash()).data.some((r) => r.id === a.id || r.id === b.id)).toBe(false);
     expect((await sql`SELECT count(*)::int AS n FROM features_all WHERE id IN (${a.id}, ${b.id})`)[0]!.n).toBe(0);

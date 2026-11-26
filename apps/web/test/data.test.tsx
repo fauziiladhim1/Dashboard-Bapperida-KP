@@ -649,4 +649,48 @@ describe('Data: tempat sampah (soft delete)', () => {
     expect(await screen.findByText('Fitur dihapus permanen')).toBeInTheDocument();
     expect(await screen.findByText('Belum ada fitur yang dihapus.')).toBeInTheDocument();
   });
+
+  it('superadmin: hapus permanen banyak dari bilah pilihan (batal, gagal, lalu berhasil)', async () => {
+    let fail = true;
+    const calls = mockApi({
+      ...base(), 'GET /auth/me': { user: user('superadmin') },
+      'GET /layers/jalan-kabupaten/features/trash': TRASH,
+      'POST /layers/jalan-kabupaten/features/bulk-purge': () => (fail ? reply(500, { error: 'Gagal hapus' }) : { purged: 1 }),
+    });
+    await open();
+    await userEvent.click(screen.getByRole('radio', { name: 'Terhapus' }));
+    await userEvent.click(await screen.findByRole('checkbox', { name: /^Pilih 9/ }));
+    const bar = await screen.findByRole('toolbar');
+    await userEvent.click(within(bar).getByRole('button', { name: /Hapus permanen 1/ }));
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Hapus permanen 1 fitur?' })).getByRole('button', { name: 'Tidak' }));
+    expect(calls.some((c) => c.url.includes('bulk-purge'))).toBe(false);
+    await userEvent.click(within(bar).getByRole('button', { name: /Hapus permanen 1/ }));
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Hapus permanen 1 fitur?' })).getByRole('button', { name: 'Hapus permanen' }));
+    expect(await screen.findByText('Gagal hapus')).toBeInTheDocument();
+    fail = false;
+    await userEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: /Hapus permanen 1/ }));
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Hapus permanen 1 fitur?' })).getByRole('button', { name: 'Hapus permanen' }));
+    expect(await screen.findByText('1 fitur dihapus permanen')).toBeInTheDocument();
+    expect(calls.filter((c) => c.url === '/layers/jalan-kabupaten/features/bulk-purge').at(-1)?.body).toEqual({ ids: [9] });
+  });
+
+  it('kolom Keputusan: ada di layer dinamis (kesesuaian), tidak di data rujukan statis', async () => {
+    const pola = { ...LAYERS.find((l) => l.slug === 'penggunaan-lahan')!, fields: [{ key: 'kesesuaian', label: 'Kesesuaian', type: 'text' as const }] };
+    mockApi({
+      ...base(), 'GET /layers': [...LAYERS.filter((l) => l.slug !== 'penggunaan-lahan'), pola],
+      'GET /layers/penggunaan-lahan/features': page([{ id: '5', properties: { kesesuaian: 'Tidak Sesuai' }, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z' }]),
+      'GET /layers/batas-administrasi/features': page([{ id: '6', properties: { kecamatan: 'Wates' }, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z' }]),
+    });
+    renderAt('/data/penggunaan-lahan');
+    expect(await screen.findByRole('button', { name: 'Keputusan fitur 5' }, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Keputusan' })).toBeInTheDocument();
+  });
+
+  it('batas administrasi (statis) tanpa kolom Keputusan', async () => {
+    mockApi({ ...base(), 'GET /layers/batas-administrasi/features': page([{ id: '6', properties: { kecamatan: 'Wates' }, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z' }]) });
+    renderAt('/data/batas-administrasi');
+    expect(await screen.findByText('Wates', {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Keputusan fitur/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Keputusan' })).not.toBeInTheDocument();
+  });
 });

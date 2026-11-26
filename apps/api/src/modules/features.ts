@@ -459,6 +459,21 @@ export const featuresRouter = (sql: Sql, uploadDir: string): Router => {
     res.json({ restored: count });
   });
 
+  // Hapus permanen banyak sekaligus (pilihan baris tab Terhapus), superadmin saja; foto ikut dihapus setelah commit.
+  router.post('/layers/:slug/features/bulk-purge', requireRole('superadmin'), async (req, res) => {
+    const layer = await getLayer(sql, req.params.slug);
+    const { ids } = bulkSchema.parse(req.body);
+    const [files, count] = await sql.begin(async (tx) => {
+      const where = tx`f.layer_id = ${layer.id} AND f.id = ANY(${ids}::bigint[]) AND f.deleted_at IS NOT NULL`;
+      const taken = await takeMedia(tx as unknown as Sql, where);
+      const { count: n } = await tx`DELETE FROM features_all f WHERE ${where}`;
+      return [taken, n] as const;
+    });
+    await removeFiles(uploadDir, files);
+    await audit(sql, req, 'bulk-purge', 'feature', null, { layer: layer.slug, ids });
+    res.json({ purged: count });
+  });
+
   router.post('/features/:id/restore', editor, async (req, res) => {
     const { id } = idParam.parse(req.params);
     const [row] = await sql`

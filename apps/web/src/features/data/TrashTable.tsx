@@ -49,6 +49,13 @@ export function TrashTable({ layer, q, kec }: { layer: Layer; q?: string; kec?: 
     onSuccess: (r) => { toast(t('trash.restoredN', { n: r.restored })); return refresh(); }, onError,
   });
   const purge = useMutation({ mutationFn: endpoints.purgeFeature, onSuccess: () => { toast(t('trash.purged')); return refresh(); }, onError });
+  const purgeMany = useMutation({
+    mutationFn: (ids: number[]) => endpoints.bulkPurge(layer.slug, ids),
+    onSuccess: (r) => { toast(t('trash.purgedN', { n: r.purged })); return refresh(); }, onError,
+  });
+  const confirmPurgeMany = async () => {
+    if (await confirmDanger({ title: t('trash.purgeManyTitle', { n: checked.size }), text: t('trash.purgeText'), confirm: t('trash.purge'), cancel: t('confirm.no') })) purgeMany.mutate([...checked]);
+  };
 
   const rows = list.data?.data ?? [];
   const pages = Math.max(1, Math.ceil((list.data?.total ?? 0) / limit));
@@ -123,14 +130,18 @@ export function TrashTable({ layer, q, kec }: { layer: Layer; q?: string; kec?: 
           size={limit} onSize={(n) => { setLimit(n); setPage(1); setChecked(new Set()); }} />
       </div>
 
-      {/* Bilah aksi pilihan: bentuk dan posisi sama dengan tab Aktif, aksinya Pulihkan. */}
+      {/* Bilah aksi pilihan: bentuk dan posisi sama dengan tab Aktif, aksinya Pulihkan (+ Hapus permanen untuk superadmin). */}
       <AnimatePresence>
         {checked.size > 0 && (
           <m.div role="toolbar" aria-label={t('data.selection')} initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }} transition={SPRING}
-            className="fixed inset-x-0 bottom-24 z-40 mx-auto flex w-fit items-center gap-2 rounded border border-border bg-surface py-2 pr-2 pl-5 text-sm text-foreground shadow-card-hover lg:bottom-8">
+            className="fixed inset-x-0 bottom-24 z-40 mx-auto flex w-fit items-center gap-2 rounded-[calc(var(--radius-control)+0.5rem)] border border-border bg-surface py-2 pr-2 pl-5 text-sm text-foreground shadow-card-hover lg:bottom-8">
             <span className="mr-2 font-medium tabular-nums">{t('data.selected', { n: checked.size })}</span>
             <Button size="sm" variant="ghost" onPress={() => setChecked(new Set())} className="text-muted hover:text-foreground">{t('common.cancel')}</Button>
             <Button size="sm" isDisabled={restoreMany.isPending} onPress={() => restoreMany.mutate([...checked])}><ArrowRotateLeft className="size-4" /> {t('trash.restoreSelected', { n: checked.size })}</Button>
+            {/* Hapus permanen hanya superadmin (sama dengan tombol per baris). */}
+            {admin && (
+              <Button size="sm" variant="danger" isDisabled={purgeMany.isPending} onPress={() => void confirmPurgeMany()}><TrashBin className="size-4" /> {t('trash.purgeSelected', { n: checked.size })}</Button>
+            )}
           </m.div>
         )}
       </AnimatePresence>

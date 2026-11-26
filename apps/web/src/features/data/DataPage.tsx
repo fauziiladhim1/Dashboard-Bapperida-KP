@@ -16,7 +16,7 @@ import { fmt, fmtDateTime } from '@/lib/format';
 import { confirmDanger, toast, toastError } from '@/lib/notify';
 import { useT } from '@/lib/prefs';
 import type { Feature, Layer } from '@/lib/types';
-import { hasDocs, urgencyOf } from '@/lib/urgency';
+import { hasDocs, needsDecision, urgencyOf } from '@/lib/urgency';
 import { useSettings } from '@/lib/settings';
 import { UrgencyBadge } from '@/components/common/UrgencyBadge';
 import { DecisionDialog } from './DecisionDialog';
@@ -99,8 +99,11 @@ export default function DataPage() {
     if (ok) remove.mutate(ids);
   };
 
+  const urgencyRules = useSettings().data?.urgensi;
   const docs = !!layer && hasDocs(layer);
-  // Kolom keputusan untuk semua layer (catatan keputusan universal); dokumentasi foto hanya layer berkondisi (`docs`).
+  // Kolom keputusan hanya untuk layer yang datanya berubah & bisa ditindaklanjuti (needsDecision); dokumentasi foto hanya
+  // layer berkondisi (`docs`). Data rujukan statis (batas administrasi, bahaya, ...) tanpa kolom ini.
+  const decisionCol = !!layer && (docs || needsDecision(layer, urgencyRules));
   const columns = layer ? (layer.fields.length ? layer.fields.slice(0, 4).map((f) => ({ key: f.key, label: f.label })) : Object.keys(list.data?.data[0]?.properties ?? {}).slice(0, 4).map((k) => ({ key: k, label: k }))) : [];
   const writable = editor && layer && !layer.sourceLayerId;
   // `?keputusan=<id>` (dari lonceng peringatan): buka notulensi & keputusan fitur itu, di halaman tabel mana pun ia berada.
@@ -223,7 +226,7 @@ export default function DataPage() {
                   sortable('id', 'ID', { isRowHeader: true }),
                   ...columns.map((c) => sortable(c.key, c.label)),
                   // Kolom dokumentasi hanya untuk layer berkondisi (Kondisi Jalan, PJU, Utilitas); data statis tidak.
-                  ...(layer ? [<Table.Column key="docs" className="whitespace-nowrap">{t(docs ? 'doc.title' : 'decision.label')}</Table.Column>] : []),
+                  ...(decisionCol ? [<Table.Column key="docs" className="whitespace-nowrap">{t(docs ? 'doc.title' : 'decision.label')}</Table.Column>] : []),
                   sortable('tahun_data', t('data.tahunData')),
                   sortable('updated_at', t('data.updated')),
                   <Table.Column key="act" className="whitespace-nowrap">{t('data.actions')}</Table.Column>,
@@ -238,7 +241,7 @@ export default function DataPage() {
                       ...(writable ? [<Table.Cell key="sel"><Checkbox aria-label={t('data.select', { id: f.id })} slot="selection"><Checkbox.Content><Checkbox.Control><Checkbox.Indicator /></Checkbox.Control></Checkbox.Content></Checkbox></Table.Cell>] : []),
                       <Table.Cell key="id" className="font-mono text-xs text-muted">{f.id}</Table.Cell>,
                       ...columns.map((c) => <Table.Cell key={c.key} className="min-w-28 max-w-56 break-words">{String(f.properties[c.key] ?? '–')}</Table.Cell>),
-                      ...(layer ? [<Table.Cell key="docs"><DocCell layer={layer!} f={f} writable={Boolean(writable)} onSaved={refresh} /></Table.Cell>] : []),
+                      ...(decisionCol ? [<Table.Cell key="docs"><DocCell layer={layer!} f={f} writable={Boolean(writable)} onSaved={refresh} /></Table.Cell>] : []),
                       <Table.Cell key="tahun_data" className="text-xs tabular-nums">{f.tahunData}</Table.Cell>,
                       <Table.Cell key="updated_at" className="text-xs whitespace-nowrap text-muted">{fmtDateTime(f.updatedAt)}</Table.Cell>,
                       <Table.Cell key="act" className="whitespace-nowrap">
@@ -279,7 +282,7 @@ export default function DataPage() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
             transition={SPRING}
-            className="fixed inset-x-0 bottom-24 z-40 mx-auto flex w-fit items-center gap-2 rounded border border-border bg-surface py-2 pr-2 pl-5 text-sm text-foreground shadow-card-hover lg:bottom-8"
+            className="fixed inset-x-0 bottom-24 z-40 mx-auto flex w-fit items-center gap-2 rounded-[calc(var(--radius-control)+0.5rem)] border border-border bg-surface py-2 pr-2 pl-5 text-sm text-foreground shadow-card-hover lg:bottom-8"
           >
             <span className="mr-2 font-medium tabular-nums">{t('data.selected', { n: checked.size })}</span>
             <Button size="sm" variant="ghost" onPress={() => setChecked(new Set())} className="text-muted hover:text-foreground">{t('common.cancel')}</Button>

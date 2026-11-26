@@ -76,6 +76,7 @@ export const endpoints = {
   bulkRestore: (slug: string, ids: number[]) => api<{ restored: number }>(`/layers/${slug}/features/bulk-restore`, { method: 'POST', json: { ids } }),
   restoreFeature: (id: number | string) => api<Feature>(`/features/${id}/restore`, { method: 'POST' }),
   purgeFeature: (id: number | string) => api<void>(`/features/${id}/purge`, { method: 'DELETE' }),
+  bulkPurge: (slug: string, ids: number[]) => api<{ purged: number }>(`/layers/${slug}/features/bulk-purge`, { method: 'POST', json: { ids } }),
   exportUrl: (slug: string, format: 'geojson' | 'csv' | 'shp', kecamatan?: string) => `/api/v1/layers/${slug}/export${qs({ format, kecamatan })}`,
 
   uploadShp: (slug: string, file: File, mode: 'append' | 'replace', dryRun: boolean, tahun?: number, map?: Record<string, string>) => {

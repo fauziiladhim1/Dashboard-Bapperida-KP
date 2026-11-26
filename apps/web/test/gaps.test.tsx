@@ -8,7 +8,9 @@ import { BUILDINGS_3D, Buildings3D } from '@/components/map/Buildings3D';
 import { HoverTip } from '@/components/map/MapOverlays';
 import { VectorLayers } from '@/components/map/VectorLayers';
 import { Breakdown, HazardCard, incomparableYears, Kpi, RankBars, RoadOverview, Spark, TimeSeries } from '@/features/overview/widgets';
-import { ColumnMap, suggestMap } from '@/features/data/UploadDialog';
+import { ColumnMap, mapIssues, suggestMap } from '@/features/data/UploadDialog';
+import { needsDecision } from '@/lib/urgency';
+import { DecisionDialog } from '@/features/data/DecisionDialog';
 import { PrefsProvider } from '@/lib/prefs';
 import { fakeMap } from './map-mock';
 import { choose, LAYERS, mockApi } from './utils';
@@ -166,4 +168,38 @@ describe('unggah: pencocokan kolom', () => {
     const { container } = bare(<ColumnMap fields={[]} columns={[]} value={{}} onChange={() => {}} />);
     expect(container).toBeEmptyDOMElement();
   });
+});
+
+describe('unggah: cek nilai & kolom keputusan', () => {
+  it('mapIssues: angka bukan angka & pilihan di luar opsi; kolom tak dipetakan/teks dilewati', () => {
+    const fields = [
+      { key: 'n', label: 'N', type: 'number' }, { key: 's', label: 'S', type: 'select', options: ['A'] },
+      { key: 't', label: 'T', type: 'text' }, { key: 'o', label: 'O', type: 'select' },
+    ] as never;
+    const sample = { type: 'FeatureCollection', features: [{ properties: { N: 'x', S: 'B', T: 1, O: 'z' } }, { properties: { N: '5', S: 'A' } }, { properties: null }] } as never;
+    expect(mapIssues(fields, { n: 'N', s: 'S', t: 'T', o: 'O' }, sample)).toEqual({ n: 1, s: 1 });
+    expect(mapIssues(fields, { n: 'N' })).toEqual({});
+  });
+
+  it('ColumnMap menandai nilai yang akan ditolak', () => {
+    const fields = [{ key: 'n', label: 'N', type: 'number' }, { key: 's', label: 'S', type: 'select', options: ['A', 'B'] }] as never;
+    bare(<ColumnMap fields={fields} columns={['N', 'S']} value={{ n: 'N', s: 'S' }} onChange={() => {}}
+      sample={{ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: null as never, properties: { N: 'x', S: 'C' } }] }} />);
+    expect(screen.getByText('1 nilai bukan angka; pilih kolom lain')).toBeInTheDocument();
+    expect(screen.getByText('1 nilai di luar opsi (A, B); pilih kolom lain')).toBeInTheDocument();
+  });
+
+  it('needsDecision: catatan rencana, kesesuaian, field aturan urgensi; statis tidak', () => {
+    const rules = { abaikan: '', aturan: [{ field: 'kondisi', tinggi: 'x', sedang: null, lainnya: null }] };
+    expect(needsDecision({ category: 'Catatan Rencana', fields: [] }, undefined)).toBe(true);
+    expect(needsDecision({ category: 'Tata Ruang', fields: [{ key: 'kesesuaian' }] } as never, undefined)).toBe(true);
+    expect(needsDecision({ category: 'Infrastruktur', fields: [{ key: 'kondisi' }] } as never, rules)).toBe(true);
+    expect(needsDecision({ category: 'Dasar', fields: [{ key: 'kecamatan' }] } as never, rules)).toBe(false);
+  });
+});
+
+it('DecisionDialog kosong sampai pengaturan termuat', () => {
+  mockApi({ 'GET /settings': () => new Promise(() => {}) });
+  const { container } = bare(<DecisionDialog f={{ id: '1', properties: {} } as never} layer={LAYERS[1]!} subject="x" onClose={() => {}} onSaved={() => {}} />);
+  expect(container).toBeEmptyDOMElement();
 });
