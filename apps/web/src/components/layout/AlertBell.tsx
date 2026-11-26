@@ -47,8 +47,9 @@ export function AlertBell() {
           )}
         </Button>
       </Tip>
-      <Dropdown.Popover placement="bottom end" className="w-[22rem] max-w-[calc(100vw-2rem)]">
-        <div className="flex items-baseline justify-between gap-3 px-3 pt-3 pb-2">
+      {/* Kolom: judul & catatan bawah tetap, hanya daftar yang digulir (bukan popover + daftar = dua scroll). */}
+      <Dropdown.Popover placement="bottom end" className="alert-popover flex w-[22rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden">
+        <div className="flex shrink-0 items-baseline justify-between gap-3 px-3 pt-3 pb-2">
           <p className="text-sm font-semibold text-heading">{t('alert.title')}</p>
           {count > 0 && <span className="text-xs text-muted tabular-nums">{t('alert.count', { n: count })}</span>}
         </div>
@@ -57,7 +58,7 @@ export function AlertBell() {
         ) : (
           <Dropdown.Menu
             // Tiap peringatan dibatasi garis tipis (header | daftar | item), tanpa garis setelah item terakhir.
-            aria-label={t('alert.title')} onAction={(k) => open(String(k))} className="max-h-96 overflow-y-auto border-t border-separator p-0">
+            aria-label={t('alert.title')} onAction={(k) => open(String(k))} className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-separator p-0">
             {items.map((a) => (
               <Dropdown.Item key={a.id} id={a.id} textValue={a.label} className="shrink-0 items-start rounded-none border-b border-separator px-3 py-2.5 last:border-b-0">
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
@@ -74,7 +75,7 @@ export function AlertBell() {
             ))}
           </Dropdown.Menu>
         )}
-        {count > items.length && <p className="border-t border-separator px-3 py-2 text-xs text-muted">{t('alert.more', { n: count - items.length })}</p>}
+        {count > items.length && <p className="shrink-0 border-t border-separator px-3 py-2 text-xs text-muted">{t('alert.more', { n: count - items.length })}</p>}
       </Dropdown.Popover>
     </Dropdown>
   );

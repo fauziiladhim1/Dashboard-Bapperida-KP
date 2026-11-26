@@ -383,6 +383,10 @@
     max-height: min(18rem, 50dvh) !important;
     overflow-y: auto;
   }
+  /* Peringatan tindak lanjut: daftar berisi beberapa baris per item, jadi lebih tinggi; yang digulir hanya daftarnya. */
+  .alert-popover.dropdown__popover {
+    max-height: min(30rem, 70dvh) !important;
+  }
   /* Trigger HeroUI ber-inline-flex tanpa align-items (ikon menempel di atas teks) dan selebar isinya
      (nama panjang meluap keluar lebar Select, mis. menimpa kotak cari): rata tengah, isi lebar Select, teks terpotong. */
   .select__trigger {
@@ -573,13 +577,22 @@
   line-height: 1.45;
   text-align: left;
 }
+/* Toast berjarak 16px dari tepi layar (bawaan 8,75px: menempel, bayangan bawah terpotong). */
+.swal2-container.swal2-bottom-end {
+  padding: 1rem;
+}
 .swal2-popup.swal2-toast .swal2-timer-progress-bar {
   height: 2px;
+  border-radius: 9999px;
 }
-/* Wadah progress bar bawaan memakai radius dialog (--swal2-border-radius), bukan radius toast: sudut bawah toast jadi
-   tidak sejajar. Ikuti radius toast. */
+/* Garis waktu toast: bawaan Swal selebar penuh di atas wadah ±7px, jadi garis lurus memotong lengkung sudut bawah dan
+   toast tampak bersudut siku. Kini 2px di tepi paling bawah, menjorok sejauh radius toast dari kiri-kanan (tidak
+   pernah masuk lengkung sudut), ujungnya membulat. */
 .swal2-popup.swal2-toast .swal2-timer-progress-bar-container {
-  border-radius: 0 0 0.875rem 0.875rem;
+  left: 0.875rem;
+  right: 0.875rem;
+  height: 2px;
+  border-radius: 9999px;
 }
 .swal2-popup .swal2-html-container {
   color: var(--foreground);
