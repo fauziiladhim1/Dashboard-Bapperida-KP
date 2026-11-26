@@ -8,7 +8,7 @@ const base = () => Swal.mixin({ reverseButtons: true });
 
 /** Notifikasi singkat (toast pojok kanan bawah). */
 export const toast = (title: string, icon: 'success' | 'error' = 'success', text?: string) =>
-  void base().fire({ toast: true, position: 'bottom-end', icon, title, text, timer: text ? 6000 : 3000, timerProgressBar: true, showConfirmButton: false });
+  void base().fire({ toast: true, position: 'bottom-end', icon, title, text, timer: text ? 6000 : 3000, showConfirmButton: false });
 
 export const toastError = (title: string, text?: string) => toast(title, 'error', text);
 

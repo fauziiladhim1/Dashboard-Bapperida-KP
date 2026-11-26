@@ -521,7 +521,6 @@
   --swal2-cancel-button-color: var(--heading);
   --swal2-cancel-button-border-radius: var(--radius-control);
   --swal2-cancel-button-box-shadow: inset 0 0 0 1px var(--field-border);
-  --swal2-timer-progress-bar-background: var(--accent);
   --swal2-close-button-color: var(--subtle);
   /* Toast tanpa garis tepi: dipisah dari halaman oleh bayangan saja. */
   --swal2-toast-border: 0;
@@ -543,7 +542,8 @@
 }
 /*
   Toast pojok kanan bawah (simpan, hapus, galat login): ringkas dan sejajar. Ikon 24px di baris judul (bukan 40px di
-  tengah), judul 14px tebal, keterangan 13px redup di bawahnya, progress bar mengikuti sudut kartu.
+  tengah), judul 14px tebal, keterangan 13px redup di bawahnya. Tanpa garis waktu (timerProgressBar mati di
+  notify.ts): garisnya memotong lengkung sudut bawah sehingga toast tampak siku.
 */
 .swal2-popup.swal2-toast {
   width: 22rem;
@@ -580,19 +580,6 @@
 /* Toast berjarak 16px dari tepi layar (bawaan 8,75px: menempel, bayangan bawah terpotong). */
 .swal2-container.swal2-bottom-end {
   padding: 1rem;
-}
-.swal2-popup.swal2-toast .swal2-timer-progress-bar {
-  height: 2px;
-  border-radius: 9999px;
-}
-/* Garis waktu toast: bawaan Swal selebar penuh di atas wadah ±7px, jadi garis lurus memotong lengkung sudut bawah dan
-   toast tampak bersudut siku. Kini 2px di tepi paling bawah, menjorok sejauh radius toast dari kiri-kanan (tidak
-   pernah masuk lengkung sudut), ujungnya membulat. */
-.swal2-popup.swal2-toast .swal2-timer-progress-bar-container {
-  left: 0.875rem;
-  right: 0.875rem;
-  height: 2px;
-  border-radius: 9999px;
 }
 .swal2-popup .swal2-html-container {
   color: var(--foreground);
