@@ -20,9 +20,8 @@ function YearDropdown({ label, aria = label, years, value, onChange, disabled, c
         <Select.Value className="whitespace-nowrap font-medium tabular-nums" />
         <Select.Indicator />
       </Select.Trigger>
-      {/* Daftar tahun pendek (± 6 baris, sisanya digulir) dan rapat ke trigger. maxHeight lewat prop: react-aria menulis
-          max-height inline (dari ruang layar), jadi kelas Tailwind/CSS global kalah. */}
-      <Select.Popover offset={4} maxHeight={240}>
+      {/* Rapat ke trigger; tinggi maksimum & gulir sama dengan semua dropdown (aturan .select__popover di index.css). */}
+      <Select.Popover offset={4}>
         <ListBox items={items}>
           {(it: Item) => (
             <ListBox.Item id={it.id} textValue={it.name}>
