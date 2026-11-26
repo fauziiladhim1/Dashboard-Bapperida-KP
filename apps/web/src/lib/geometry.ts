@@ -63,7 +63,7 @@ function parsePointText(s: string): { p: [number, number]; from: string } | null
     // Huruf: S = selatan (kebiasaan "49S"); selain itu huruf pita lintang, C-M di belahan selatan.
     const south = utm[2] ? /[C-MS]/i.test(utm[2]) : DEFAULT_UTM_ZONE.south;
     const e = Number(utm[3]), n = Number(utm[4]);
-    if (zone < 1 || zone > 60 || e < 100000 || e > 900000 || n > 10000000) return null;
+    if (zone < 1 || zone > 60 || e < 100000 || e > 900000) return null; // utara maks 7 digit (< 10 juta) dijaga regex
     return { p: utmToLngLat(zone, south, e, n), from: `UTM ${zone}${south ? 'S' : 'N'}` };
   }
   const dms = parseDms(s);

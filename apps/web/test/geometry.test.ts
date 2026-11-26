@@ -60,6 +60,15 @@ describe('parseGeometryText: DMS & UTM (layer titik)', () => {
     }
     expect(at('49S 407398 9131086')).not.toHaveProperty('reason');
     expect(parseGeometryText('49S 407398 9131086', 'Polygon')).toEqual({ ok: false, reason: 'syntax' });
+    // Belahan utara (huruf pita >= N selain S): lintang positif.
+    const north = at('49N 407398 868913') as { c: number[]; from: string };
+    expect(north.from).toBe('UTM 49N');
+    expect(north.c[1]).toBeCloseTo(7.86, 2);
+    // Zona / timur di luar rentang UTM tidak dibaca sebagai UTM.
+    for (const s of ['0S 407398 9131086', '61S 407398 9131086', '012345 9131086', '950000 9131086']) expect(at(s)).toHaveProperty('reason');
+  });
+  it('DMS ditolak: sisa teks asing, tiga komponen, dua bujur tanpa lintang', () => {
+    for (const s of [`6°35'42"S x 106°48'59"E`, `6°S 106°E 7°S`, `6°E 106°E`]) expect(parseGeometryText(s, 'Point')).toHaveProperty('ok', false);
   });
 });
 
