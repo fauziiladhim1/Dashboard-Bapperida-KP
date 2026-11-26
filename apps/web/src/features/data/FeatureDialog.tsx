@@ -341,12 +341,13 @@ export function FeatureDialog({ layer, featureId, readOnly, onClose, onSaved, dr
                 </Map>
               </div>
               <TextArea id="geom-wkt" value={text} onChange={(e) => setGeomText(e.target.value)} readOnly={readOnly}
-                onBlur={() => parsed.ok && /^-?\d/.test(text.trim()) && setGeomText(toWkt(parsed.geometry))} rows={3} spellCheck={false}
+                onBlur={() => parsed.ok && parsed.from && setGeomText(toWkt(parsed.geometry))} rows={3} spellCheck={false}
                 aria-label={t('feat.geom')} aria-invalid={!!text.trim() && !parsed.ok}
                 placeholder={WKT_EXAMPLE[layer.geomType]} className="font-mono text-xs" />
               <p className={cn('text-xs', text.trim() && !parsed.ok ? 'text-danger' : 'text-muted')}>
                 {text.trim() && !parsed.ok
                   ? t(`feat.geomErr.${parsed.reason}`, { type: layer.geomType })
+                  : parsed.ok && parsed.from ? t('feat.geomFrom', { from: parsed.from, wkt: toWkt(parsed.geometry) })
                   : layer.geomType === 'Point' && !readOnly ? t('feat.geomHintPoint') : drawable ? t('draw.hint') : t('feat.geomHint')}
               </p>
             </section>
