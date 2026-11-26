@@ -128,6 +128,25 @@ export const run = async (sql: Sql) => {
   console.log(`potensi-bencana: ${total} zona (${HAZARDS.length} jenis bahaya × kelas × kalurahan)`);
 };
 
+/** Umur maksimum salinan InaRISK di database sebelum diperbarui otomatis. */
+export const MAX_AGE_DAYS = 30;
+
+/**
+ * Pembaruan otomatis (dipanggil server tiap hari): jalankan `refresh` hanya bila salinan tertua dari MAX_AGE_DAYS atau
+ * layer masih kosong. Dilewati bila layer berisi fitur yang bukan hasil skrip ini (unggahan/editan manual) agar tidak
+ * tertimpa; jalankan `db:inarisk` manual untuk sengaja menggantinya.
+ */
+export const autoUpdate = async (sql: Sql, now = new Date(), refresh: (sql: Sql) => Promise<void> = run, slug = SLUG) => {
+  const [s] = await sql<{ last: string | null; manual: number }[]>`
+    SELECT max(f.properties->>'tanggal_ambil') AS last,
+           count(*) FILTER (WHERE f.properties->>'sumber' IS DISTINCT FROM 'InaRISK BNPB')::int AS manual
+    FROM features f JOIN layers l ON l.id = f.layer_id AND l.slug = ${slug}`;
+  if (s!.manual > 0) return 'manual' as const;
+  if (s!.last && now.getTime() - Date.parse(s!.last) < MAX_AGE_DAYS * 864e5) return 'fresh' as const;
+  await refresh(sql);
+  return 'updated' as const;
+};
+
 // Dijalankan langsung (bukan diimpor tes): ambil data & tulis. Entry CLI, dikecualikan dari coverage seperti cli.ts/import.ts.
 /* v8 ignore start */
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {

@@ -77,6 +77,22 @@ docker compose --profile prod run --rm api node dist/db/cli.js seed
 
 Migrasi bersifat maju saja dan tercatat di tabel `_migrations`, jadi aman dijalankan berulang.
 
+### Perbarui data Potensi Bencana (InaRISK)
+
+Peta bahaya di halaman Peta selalu diambil langsung dari server BNPB. Ringkasan, menu Data, dan ekspor membaca salinan di database (layer `potensi-bencana`).
+
+Salinan ini diperbarui otomatis oleh API produksi: 1 menit setelah start lalu tiap 24 jam, API memeriksa kolom `tanggal_ambil`, dan bila salinan lebih tua dari 30 hari (atau layer masih kosong), raster InaRISK diunduh ulang. Hasilnya tercatat di log API (`docker compose logs api | grep InaRISK`).
+
+- Butuh akses internet keluar dari VM ke `https://gis.bnpb.go.id`. Minta Kominfo membuka akses ini bila firewall memblokirnya. Bila unduhan gagal, database tidak berubah dan pemeriksaan diulang esok harinya.
+- Bila layer berisi data unggahan atau editan manual (fitur tanpa `sumber` = `InaRISK BNPB`), pembaruan otomatis dilewati agar data itu tidak tertimpa.
+- Matikan dengan `INARISK_AUTO=false` di `.env`.
+
+Paksa perbarui sekarang (mengganti seluruh isi layer, termasuk data manual):
+
+```bash
+docker compose --profile prod run --rm api node dist/db/inarisk.js
+```
+
 ## 7. Checklist keamanan
 
 - [ ] `.env` tidak ada di repo (`git ls-files | grep .env` hanya menampilkan `.env.example`)

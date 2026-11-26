@@ -9,6 +9,8 @@ const schema = z.object({
   TRUST_PROXY: z.coerce.number().int().min(0).default(0),
   // Akun yang passwordnya dikelola .env (disinkronkan tiap start, tak bisa diganti dari aplikasi). Kosong = tidak ada.
   SEED_ADMIN_EMAIL: z.string().optional().transform((e) => e?.trim().toLowerCase() || undefined),
+  // Perbarui layer potensi-bencana dari InaRISK BNPB bila salinannya > 30 hari (cek tiap 24 jam). `false` = matikan.
+  INARISK_AUTO: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
   SEED_ADMIN_PASSWORD: z.string().min(12, 'SEED_ADMIN_PASSWORD minimal 12 karakter').optional().or(z.literal('').transform(() => undefined)),
 });
 

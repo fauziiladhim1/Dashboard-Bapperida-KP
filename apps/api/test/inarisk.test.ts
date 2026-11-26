@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { kelasOf, toRows, writeZones } from '../src/db/inarisk.js';
+import { parseEnv } from '../src/config/env.js';
+import { autoUpdate, kelasOf, toRows, writeZones } from '../src/db/inarisk.js';
 import { LAYERS, upsertLayer } from '../src/db/seed.js';
 import { sql } from './helpers.js';
 
@@ -39,5 +40,24 @@ describe('zona bahaya InaRISK', () => {
     const [row] = await sql<{ sumber: string | null }[]>`SELECT sumber FROM layers WHERE slug = ${seed.slug}`;
     expect(row!.sumber).toBeNull();
     await sql`DELETE FROM layers WHERE slug = ${seed.slug}`;
+  });
+
+  it('autoUpdate: kosong/basi -> perbarui, < 30 hari -> lewati, ada data manual -> jangan timpa', async () => {
+    const [l] = await sql<{ id: number }[]>`INSERT INTO layers (slug, name, category, geom_type) VALUES ('auto-test', 'Auto', 'Tes', 'Polygon') RETURNING id`;
+    let calls = 0;
+    const refresh = async () => void calls++;
+    const at = (d: string) => autoUpdate(sql, new Date(d), refresh, 'auto-test');
+    const add = (props: object) => sql`INSERT INTO features (layer_id, properties, geom)
+      VALUES (${l!.id}, ${sql.json(props as never)}, ST_Multi(ST_MakeEnvelope(110, -7.1, 110.1, -7, 4326)))`;
+    expect(await at('2026-03-01')).toBe('updated'); // layer kosong
+    await add({ sumber: 'InaRISK BNPB', tanggal_ambil: '2026-03-01' });
+    expect(await at('2026-03-20')).toBe('fresh');
+    expect(await at('2026-04-15')).toBe('updated'); // 45 hari
+    await add({ jenis_bahaya: 'Banjir', kelas: 'Tinggi' }); // unggahan manual: tanpa sumber InaRISK
+    expect(await at('2026-06-01')).toBe('manual');
+    expect(calls).toBe(2);
+    expect(parseEnv({ DATABASE_URL: 'postgres://u:p@h/d', JWT_SECRET: 'x'.repeat(32), INARISK_AUTO: 'false' }).INARISK_AUTO).toBe(false);
+    await sql`DELETE FROM features_all WHERE layer_id = ${l!.id}`;
+    await sql`DELETE FROM layers WHERE id = ${l!.id}`;
   });
 });
