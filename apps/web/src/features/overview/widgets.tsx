@@ -74,7 +74,11 @@ export function KpiFigure({ value, format, sub, delta, loading, tone, big }: Omi
   return (
     <>
       {loading ? (
-        <span aria-busy className={cn('skeleton block w-32 rounded-lg', big ? 'mt-2 h-14' : 'h-9')} />
+        // Skeleton setinggi angka asli (44/56px hero) + baris pembanding kosong: data tiba tanpa menggeser isi kartu.
+        <>
+          <span aria-busy className={cn('skeleton block w-32 rounded-lg', big ? 'mt-2 h-11 sm:h-14' : 'h-9')} />
+          <div aria-hidden className="mt-3 min-h-[1lh] text-xs" />
+        </>
       ) : value === null ? (
         <p className={cn('font-heading leading-none font-medium text-subtle', SIZE)}>—</p>
       ) : (
@@ -147,7 +151,9 @@ export function Kpi({ icon, label, children, to, wide, bare, ...figure }: KpiPro
  * Kartu hero bento (lebar penuh): kiri judul + KPI utama berukuran besar + rincian (`extra`, mis. semua kecamatan),
  * kanan grafik tertanam dengan keterangan kecil di kiri atas. `children` = isi panel grafik.
  */
-export function HeroKpi({ label, children, to, icon, caption, extra, ...figure }: KpiProps & { caption?: string;
+export function HeroKpi({ label, children, to, icon, caption, extra, extraLoading, ...figure }: KpiProps & { caption?: string;
+  /** Data rincian masih dimuat (terpisah dari angka utama): ruangnya tetap dipesan. */
+  extraLoading?: boolean;
   /** Rincian di bawah angka utama (mis. penduduk miskin per kecamatan). */
   extra?: ReactNode }) {
   return (
@@ -156,7 +162,10 @@ export function HeroKpi({ label, children, to, icon, caption, extra, ...figure }
       <div className="card-pad flex flex-1 flex-col justify-center">
         <div className="flex items-center gap-3"><IconChip icon={icon} /><KpiLabel label={label} to={to} /></div>
         <KpiFigure {...figure} big />
-        {extra && !figure.loading && figure.value !== null && <div className="mt-8 lg:max-w-md">{extra}</div>}
+        {/* Selama memuat, ruang rincian (±164px, 5 baris peringkat) sudah dipesan: kartu tidak memanjang saat data
+            tiba, jadi grafik di sebelah/bawahnya tidak bergeser (CLS 0,136 -> layout stabil). */}
+        {figure.loading || extraLoading ? <span aria-busy className="skeleton mt-8 block h-[164px] rounded-xl lg:max-w-md" />
+          : extra && figure.value !== null && <div className="mt-8 lg:max-w-md">{extra}</div>}
       </div>
       {children && (
         // Grafik langsung di kartu (tanpa bingkai/latar sendiri), keterangan kecil di kiri atas. Blok grafik pertama
@@ -952,11 +961,17 @@ export function squarify<T extends { v: number }>(items: T[], W: number, H: numb
   return out;
 }
 
-/** Warna teks di atas kotak berwarna: gelap untuk latar terang, putih untuk latar gelap. */
-const ink = (c: string) => {
-  const n = /^#[0-9a-f]{6}$/i.test(c) ? [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)) : null;
+/**
+ * Warna teks di atas kotak berwarna: gelap atau putih, mana yang kontrasnya (WCAG, luminans relatif) lebih tinggi.
+ * Ambang kecerahan sederhana sebelumnya memilih putih di atas oranye #f57c00 (kontras 2,7:1, di bawah 4,5:1).
+ */
+export const ink = (c: string) => {
+  const n = /^#[0-9a-f]{6}$/i.test(c) ? [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16) / 255) : null;
   if (!n) return 'var(--heading)';
-  return (0.299 * n[0]! + 0.587 * n[1]! + 0.114 * n[2]!) / 255 > 0.6 ? '#1d2420' : '#ffffff';
+  const [r, g, b] = n.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)) as [number, number, number];
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  // Luminans #1d2420 ≈ 0,0163 (+0,05 = 0,0663); putih = 1.
+  return (lum + 0.05) / 0.0663 > 1.05 / (lum + 0.05) ? '#1d2420' : '#ffffff';
 };
 
 /** `true` bila lebar layar < 640px (breakpoint `sm`); ikut berubah saat jendela diubah ukurannya. */
@@ -1086,26 +1101,53 @@ export function RoadOverview({ network = [], layer, unmatched = 0, hiddenKelas =
   );
 }
 
+/**
+ * `true` sejak elemen berada dalam 300px dari viewport (sekali saja, lalu observer dilepas). `enabled` false = belum
+ * diamati (mis. kartu di atasnya masih skeleton pendek, posisi elemen belum final).
+ * Tanpa IntersectionObserver (browser lama) langsung `true`: konten tetap tampil, hanya tidak ditunda.
+ */
+export function useNearViewport(enabled = true) {
+  const [el, setEl] = useState<Element | null>(null);
+  const [near, setNear] = useState(() => typeof IntersectionObserver === 'undefined');
+  useEffect(() => {
+    if (near || !el || !enabled) return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) { setNear(true); io.disconnect(); }
+    }, { rootMargin: '300px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [el, near, enabled]);
+  return [setEl, near] as const;
+}
+
 /** Peta kecil: layer bawaan (visibleDefault) saja; pemilihan layer lengkap ada di halaman Peta. */
 const NO_HIDDEN: Record<string, string[]> = {};
 
 /** `hidden`: kelas yang dimatikan per slug layer (mis. kelas kondisi ruas dari kartu Kondisi Jalan). */
-export function MiniMap({ layers, kecamatan, gaps = [], tahun, hidden = NO_HIDDEN }: { layers: Layer[]; kecamatan?: string; gaps?: YearGap[]; tahun?: number; hidden?: Record<string, string[]> }) {
+export function MiniMap({ layers, kecamatan, gaps = [], tahun, hidden = NO_HIDDEN, defer = false }: { layers: Layer[]; kecamatan?: string; gaps?: YearGap[]; tahun?: number; hidden?: Record<string, string[]>;
+  /** true selama kartu di atasnya masih memuat: posisi peta belum final, jadi belum diamati. */
+  defer?: boolean }) {
   const { t } = usePrefs();
   const visible = useMemo(() => layers.filter((l) => l.visibleDefault && l.featureCount > 0).map((l) => ({ ...l, opacity: 1, hidden: hidden[l.slug] })), [layers, hidden]);
   const [hover, setHover] = useState<Hover | null>(null);
   const navigate = useNavigate();
+  const [sentinel, near] = useNearViewport(!defer);
   // Klik fitur di peta mini → buka di halaman Peta dengan popup fitur tersebut.
   const open = useCallback((f: MapGeoJSONFeature, l: Layer, p: { lng: number; lat: number }) => {
     if (f.id !== undefined) navigate(`/peta?f=${f.id}&layer=${l.slug}&lng=${p.lng}&lat=${p.lat}`);
   }, [navigate]);
   return (
     <Card className="relative h-full min-h-[360px] overflow-hidden p-0">
-      <Map center={KULON_PROGO_CENTER} zoom={9.6} attributionControl={{ compact: true }} cooperativeGestures>
-        <MapControls position="bottom-right" showZoom />
-        <VectorLayers layers={visible} kecamatan={kecamatan} tahun={tahun} onFeatureClick={open} />
-        <MapHover onHover={setHover} />
-      </Map>
+      {/* Peta mini ada jauh di bawah layar pertama: MapLibre (±290 KB JS + worker) baru dimuat saat kartu mendekati
+          viewport, bukan saat Ringkasan dibuka. Kartu tetap setinggi min-h-[360px], jadi tidak ada pergeseran. */}
+      <span ref={sentinel} aria-hidden className="pointer-events-none absolute inset-0" />
+      {near && (
+        <Map center={KULON_PROGO_CENTER} zoom={9.6} attributionControl={{ compact: true }} cooperativeGestures>
+          <MapControls position="bottom-right" showZoom />
+          <VectorLayers layers={visible} kecamatan={kecamatan} tahun={tahun} onFeatureClick={open} />
+          <MapHover onHover={setHover} />
+        </Map>
+      )}
       {/* Konteks peta: judul, kecamatan terfilter, layer yang tampil (maks 3 + sisa). Tahun sudah ada di header. */}
       <div className="pointer-events-none absolute top-5 left-5 flex max-w-[calc(100%-2.5rem)] flex-col items-start gap-2 sm:top-6 sm:left-6 sm:max-w-[calc(100%-3rem)]">
         <div className="pointer-events-auto rounded-2xl bg-surface/90 px-4 py-2.5 shadow-card backdrop-blur">

@@ -12,3 +12,4 @@ uploads/
 apps/web/public/vendor/
 .qatmp_assets/
 coverage-fork/
+apps/web/.lighthouse/

@@ -48,13 +48,14 @@ export default function UsersPage() {
 
   return (
     <Panel title={t('users.title')} subtitle={t('users.sub')}>
-      <Tabs aria-label={t('users.status')} selectedKey={status} onSelectionChange={(k) => setStatus(k as Status)} className="w-full sm:w-fit">
-        <Tabs.ListContainer>
+      {/* Tabel di dalam Tabs.Panel: aria-controls tiap tab menunjuk panel yang benar-benar ada (sebelumnya tak dirender). */}
+      <Tabs aria-label={t('users.status')} selectedKey={status} onSelectionChange={(k) => setStatus(k as Status)} className="flex flex-col gap-4">
+        <Tabs.ListContainer className="w-full sm:w-fit">
           <Tabs.List>
             {STATUSES.map((st) => <Tabs.Tab key={st} id={st}>{t(`users.${st}`)}<Tabs.Indicator /></Tabs.Tab>)}
           </Tabs.List>
         </Tabs.ListContainer>
-      </Tabs>
+      <Tabs.Panel id={status} className="p-0">
       <Table>
         <Table.ScrollContainer>
           <Table.Content aria-label={t('users.title')} className="min-w-[640px]">
@@ -111,6 +112,8 @@ export default function UsersPage() {
           </Table.Content>
         </Table.ScrollContainer>
       </Table>
+      </Tabs.Panel>
+      </Tabs>
     </Panel>
   );
 }

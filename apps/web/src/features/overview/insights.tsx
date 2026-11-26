@@ -78,7 +78,8 @@ export function HazardExposure({ kecamatan }: { kecamatan?: string }) {
                     <dd className="order-1 flex items-baseline gap-1 text-danger">
                       <AnimatedNumber value={c.v(multi)} format={fmt}
                         className="font-heading text-[28px] leading-none font-medium tracking-[-0.03em] text-danger @3xl:text-[34px]" />
-                      {c.u && <span className="text-sm font-medium opacity-70">{c.u}</span>}
+                      {/* Satuan redup lewat warna teks (bukan opacity merah: kontras 3,9:1 < 4,5:1). */}
+                      {c.u && <span className="text-sm font-medium text-muted">{c.u}</span>}
                     </dd>
                   </div>
                 ))}
@@ -92,7 +93,7 @@ export function HazardExposure({ kecamatan }: { kecamatan?: string }) {
             <thead>
               <tr className="text-left">
                 <th scope="col" className={TH}>{t('ins.hazardType')}</th>
-                {COLS.map((c) => <th key={c.k} scope="col" className={cn(TH, 'text-right')}>{t(c.k)}{c.u && <span className="text-subtle/70"> ({c.u})</span>}</th>)}
+                {COLS.map((c) => <th key={c.k} scope="col" className={cn(TH, 'text-right')}>{t(c.k)}{/* Satuan ikut warna judul kolom (text-subtle/70 di tema gelap hanya 3,35:1). */}{c.u && <span className="font-normal"> ({c.u})</span>}</th>)}
               </tr>
             </thead>
             <tbody className="divide-y divide-separator border-t border-separator">

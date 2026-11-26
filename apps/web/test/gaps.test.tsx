@@ -1,13 +1,13 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { createQueryClient } from '@/app/App';
+import { createQueryClient, preloadPage } from '@/app/App';
 import { BUILDINGS_3D, Buildings3D } from '@/components/map/Buildings3D';
 import { HoverTip } from '@/components/map/MapOverlays';
 import { VectorLayers } from '@/components/map/VectorLayers';
-import { Breakdown, HazardCard, incomparableYears, Kpi, RankBars, RoadOverview, Spark, TimeSeries } from '@/features/overview/widgets';
+import { Breakdown, HazardCard, incomparableYears, ink, Kpi, RankBars, RoadOverview, Spark, TimeSeries, useNearViewport } from '@/features/overview/widgets';
 import { ColumnMap, mapIssues, suggestMap } from '@/features/data/UploadDialog';
 import { needsDecision } from '@/lib/urgency';
 import { DecisionDialog } from '@/features/data/DecisionDialog';
@@ -202,4 +202,32 @@ it('DecisionDialog kosong sampai pengaturan termuat', () => {
   mockApi({ 'GET /settings': () => new Promise(() => {}) });
   const { container } = bare(<DecisionDialog f={{ id: '1', properties: {} } as never} layer={LAYERS[1]!} subject="x" onClose={() => {}} onSaved={() => {}} />);
   expect(container).toBeEmptyDOMElement();
+});
+
+it('ink: warna teks treemap dipilih dari kontras WCAG tertinggi', () => {
+  expect(ink('#f57c00')).toBe('#1d2420'); // oranye: putih hanya 2,7:1
+  expect(ink('#1B5E20')).toBe('#ffffff');
+  expect(ink('#000000')).toBe('#ffffff');
+  expect(ink('hsl(0 0% 50%)')).toBe('var(--heading)');
+});
+
+it('useNearViewport: menunggu elemen mendekati viewport, lalu melepas observer', () => {
+  let fire: (entries: { isIntersecting: boolean }[]) => void = () => {};
+  const disconnect = vi.fn();
+  vi.stubGlobal('IntersectionObserver', class { constructor(cb: typeof fire) { fire = cb; } observe() {} disconnect = disconnect; });
+  const { result, rerender } = renderHook(({ on }) => useNearViewport(on), { initialProps: { on: false } });
+  act(() => result.current[0](document.createElement('div')));
+  act(() => fire([{ isIntersecting: true }])); // belum diamati selama enabled=false
+  expect(result.current[1]).toBe(false);
+  rerender({ on: true });
+  act(() => fire([{ isIntersecting: false }]));
+  expect(result.current[1]).toBe(false);
+  act(() => fire([{ isIntersecting: true }]));
+  expect(result.current[1]).toBe(true);
+  expect(disconnect).toHaveBeenCalled();
+  vi.unstubAllGlobals();
+});
+
+it('preloadPage: segmen dikenal memuat chunk halaman, segmen asing diabaikan', () => {
+  expect(() => { preloadPage(''); preloadPage('/peta'); preloadPage('/tidak-ada'); }).not.toThrow();
 });

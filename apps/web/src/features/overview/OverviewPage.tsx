@@ -163,7 +163,7 @@ export default function OverviewPage() {
           </div>
         )}
         label={t('ov.poor')} value={poorLast?.miskin ?? null} format={(n) => t('ov.people', { n: fmt(n) })}
-        loading={series.isPending}
+        loading={series.isPending} extraLoading={poorWhere.loading}
         delta={poorDelta !== null ? { text: t('ov.kpiPoorDelta', { delta: `${poorDelta > 0 ? '+' : ''}${fmt(poorDelta)}`, pct: `${poorDelta > 0 ? '+' : ''}${pct(poorDelta, poorFirst!.miskin)}%`, tahun: poorFirst!.tahun }), up: poorDelta > 0, bad: poorDelta > 0 } : undefined}
         sub={poorDelta === null ? t('ov.kpiPoorSub') : undefined} to={peta('penduduk-miskin')}>
         <Spark points={poor.map((p) => ({ label: `${p.tahun}${poorOdd.has(p.tahun) ? '*' : ''}`, value: p.miskin }))} className="min-h-28 flex-1" labels={fmtCompact} />
@@ -212,7 +212,8 @@ export default function OverviewPage() {
       </div>
     ) },
     // Peta + potensi bencana berdampingan; tombol kelas di KPI Kondisi jalan menyaring peta ini.
-    { key: 'minimap', label: t('ov.mapTitle'), span: 7, node: <MiniMap layers={layers} kecamatan={kec} gaps={yearGaps(all, tahun)} tahun={tahun} hidden={mapHidden} /> },
+    { key: 'minimap', label: t('ov.mapTitle'), span: 7, node: <MiniMap layers={layers} kecamatan={kec} gaps={yearGaps(all, tahun)} tahun={tahun} hidden={mapHidden}
+      defer={allLayers.isPending || series.isPending || jalanQ.loading || pjuQ.loading || utilQ.loading || tutupanQ.loading} /> },
     { key: 'hazard', label: t('ov.hazard'), span: 5, node: (
       <HazardCard rows={bahayaQ.data ?? []} totalHa={sum(batasQ.data, 'areaHa')} layer={bySlug('potensi-bencana')}
         loading={allLayers.isPending || bahayaQ.loading} retry={bahayaQ.retry} />

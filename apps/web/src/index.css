@@ -1,5 +1,11 @@
 @import "tailwindcss";
 @import "@heroui/styles";
+/* Rubik di-host sendiri (subset latin, berat yang dipakai): tanpa koneksi ke Google Fonts, file ikut di-hash & di-cache
+   selamanya. 600 (font-semibold) memakai 700 seperti sebelumnya. */
+@import "@fontsource/rubik/latin-300.css";
+@import "@fontsource/rubik/latin-400.css";
+@import "@fontsource/rubik/latin-500.css";
+@import "@fontsource/rubik/latin-700.css";
 
 @custom-variant dark (&:is(.dark *));
 

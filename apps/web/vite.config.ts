@@ -19,7 +19,10 @@ export default defineConfig({
         // Recharts sengaja TIDAK dipisah: chunk 'charts' bernama menarik runtime React bersama (jsx-runtime)
         // ke dalamnya, lalu entry meng-import statis chunk itu -> index.html mem-preload recharts+d3 di halaman
         // login (FE-PERF-01). Dibiarkan, recharts ikut ke chunk dinamis OverviewPage dan hanya dimuat di /overview.
-        manualChunks: (id) => (id.includes('maplibre-gl') ? 'maplibre' : undefined),
+        // CSS maplibre dikecualikan: map.tsx meng-import CSS itu secara statis, dan bila CSS ikut chunk 'maplibre',
+        // seluruh JS MapLibre (~290 KB) ikut dimuat statis di setiap halaman yang memakai komponen peta, padahal
+        // import("maplibre-gl") di map.tsx sudah dinamis.
+        manualChunks: (id) => (id.includes('maplibre-gl') && !id.endsWith('.css') ? 'maplibre' : undefined),
       },
     },
   },

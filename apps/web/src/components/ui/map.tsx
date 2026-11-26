@@ -32,7 +32,8 @@ function loadMapLibre() {
     .then((lib) => {
       if (!lib.getWorkerUrl()) {
         // Self-host worker (disalin dari node_modules oleh script "vendor" di package.json): tanpa ketergantungan unpkg dan lolos CSP script-src 'self'.
-        lib.setWorkerUrl("/vendor/maplibre-gl-worker.mjs");
+        // ?v=versi: nginx meng-cache /vendor/ selamanya, versi baru maplibre = URL baru (cache lama tidak terpakai).
+        lib.setWorkerUrl(`/vendor/maplibre-gl-worker.mjs?v=${lib.getVersion()}`);
       }
       return lib;
     })
@@ -43,7 +44,8 @@ function loadMapLibre() {
   return maplibrePromise;
 }
 
-if (typeof window !== "undefined") loadMapLibre().catch(() => {});
+// Tidak memuat MapLibre saat modul diimpor (bawaan template mapcn): modul ini ikut di Ringkasan dan dialog fitur
+// menu Data, jadi ~290 KB JS terunduh & dijalankan walau belum ada peta yang tampil. Dimuat saat <Map> dipasang.
 
 const defaultStyles = {
   dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",

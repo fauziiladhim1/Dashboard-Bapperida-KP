@@ -1,5 +1,5 @@
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { domMax, LazyMotion, MotionConfig } from 'motion/react';
+import { LazyMotion, MotionConfig } from 'motion/react';
 import { lazy, Suspense, useState, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { AppShell } from '@/components/layout/AppShell';
@@ -11,13 +11,35 @@ import { PrefsProvider } from '@/lib/prefs';
 import type { Role } from '@/lib/types';
 
 // Setiap halaman di-split per route: halaman login tidak ikut memuat MapLibre/Recharts.
-const AuthPage = lazy(() => import('@/features/auth/AuthPage'));
-const OverviewPage = lazy(() => import('@/features/overview/OverviewPage'));
-const PetaPage = lazy(() => import('@/features/peta/PetaPage'));
-const DataPage = lazy(() => import('@/features/data/DataPage'));
-const UsersPage = lazy(() => import('@/features/users/UsersPage'));
-const AuditPage = lazy(() => import('@/features/audit/AuditPage'));
-const AccountPage = lazy(() => import('@/features/account/AccountPage'));
+const load = {
+  auth: () => import('@/features/auth/AuthPage'),
+  overview: () => import('@/features/overview/OverviewPage'),
+  peta: () => import('@/features/peta/PetaPage'),
+  data: () => import('@/features/data/DataPage'),
+  users: () => import('@/features/users/UsersPage'),
+  audit: () => import('@/features/audit/AuditPage'),
+  account: () => import('@/features/account/AccountPage'),
+};
+const AuthPage = lazy(load.auth);
+const OverviewPage = lazy(load.overview);
+const PetaPage = lazy(load.peta);
+const DataPage = lazy(load.data);
+const UsersPage = lazy(load.users);
+const AuditPage = lazy(load.audit);
+const AccountPage = lazy(load.account);
+
+const BY_SEGMENT: Record<string, () => Promise<unknown>> = {
+  '': load.overview, peta: load.peta, data: load.data, pengguna: load.users, log: load.audit, akun: load.account,
+  login: load.auth, register: load.auth,
+};
+/**
+ * Unduh chunk halaman tujuan bersamaan dengan cek sesi (/auth/me), bukan sesudahnya: tanpa ini chunk baru diminta
+ * setelah sesi terjawab dan shell dirender (waterfall ±100 ms sebelum data halaman mulai dimuat). import() di-cache,
+ * jadi lazy() di bawah memakai modul yang sama.
+ */
+export function preloadPage(pathname: string) {
+  void BY_SEGMENT[pathname.split('/')[1] ?? '']?.();
+}
 
 export const createQueryClient = () => {
   const client: QueryClient = new QueryClient({
@@ -65,13 +87,15 @@ export function AppRoutes() {
   );
 }
 
+const loadMotion = () => import('./motion-features').then((r) => r.default);
+
 export function App({ client: given }: { client?: QueryClient }) {
   // Dibuat sekali: default parameter akan membuat client (dan cache) baru setiap App dirender ulang.
   const [client] = useState(() => given ?? createQueryClient());
   return (
     <QueryClientProvider client={client}>
       <PrefsProvider>
-      <LazyMotion features={domMax} strict>
+      <LazyMotion features={loadMotion} strict>
         <MotionConfig reducedMotion="user">
           <BrowserRouter>
             <AppRoutes />
