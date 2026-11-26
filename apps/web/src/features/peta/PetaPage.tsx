@@ -178,13 +178,13 @@ export default function PetaPage() {
     </div>
     <Collapse open={hazardOn}>
       <div className="flex flex-col gap-3 pt-3 pb-1">
-        {/* Popover dikunci ke bawah (tidak dibalik ke atas): daftar digulir di ruang tersisa, tidak menutupi header/filter panel. */}
+        {/* Sama dengan dropdown lain: terbuka ke bawah, dibalik ke atas bila ruang di bawah tidak cukup (mis. dekat dasar panel). */}
         <Select aria-label={t('map.hazardType')} selectedKey={hazard} onSelectionChange={(k) => k !== null && setHazard(k as HazardId)}>
           <Select.Trigger className="min-h-9 gap-2 bg-surface text-sm text-heading">
             <Select.Value className="min-w-0 break-words font-medium" />
             <Select.Indicator />
           </Select.Trigger>
-          <Select.Popover placement="bottom" shouldFlip={false}>
+          <Select.Popover>
             <ListBox items={HAZARDS.map((h) => ({ id: h.id, name: t(`map.hz.${h.id}`) }))}>
               {(it: { id: string; name: string }) => (
                 <ListBox.Item id={it.id} textValue={it.name}>{it.name}<ListBox.ItemIndicator /></ListBox.Item>
