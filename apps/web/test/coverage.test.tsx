@@ -16,7 +16,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { PrefsProvider } from '@/lib/prefs';
 import type { TimePoint } from '@/lib/types';
 import { fakeMap, mapState } from './map-mock';
-import { choose, LAYERS, mockApi, page, renderAt, reply, user } from './utils';
+import { choose, LAYERS, mockApi, page, renderAt, reply, user, dateOf, setDate } from './utils';
 
 /** Render komponen lepas dengan provider minimal (tanpa router/shell). */
 const bare = (ui: React.ReactNode) =>
@@ -35,7 +35,7 @@ describe('YearRange / YearSelect', () => {
   it('tahun akhir bisa diganti; YearSelect tanpa nilai tetap tampil', async () => {
     const onChange = vi.fn();
     bare(<><YearRange years={[2024, 2025, 2026]} dari={2024} sampai={2025} onChange={onChange} /><YearSelect years={[2026]} onChange={vi.fn()} /></>);
-    await choose(/Sampai tahun/, '2026');
+    await choose(/Sampai tahun/i, '2026');
     expect(onChange).toHaveBeenCalledWith({ dari: 2024, sampai: 2026 });
     expect(screen.getAllByRole('button', { name: /Tahun/ }).length).toBeGreaterThan(0);
   });
@@ -51,17 +51,17 @@ describe('Akun', () => {
   it('ganti password sukses mengosongkan form', async () => {
     const calls = mockApi({ 'GET /auth/me': { user: { ...user('viewer') } }, 'GET /layers': LAYERS, 'PATCH /auth/me': { user: user('viewer') } });
     renderAt('/akun');
-    const current = await screen.findByLabelText('Password lama', {}, { timeout: 5000 });
+    const current = await screen.findByLabelText('Password Lama', {}, { timeout: 5000 });
     await userEvent.type(current, 'Lama12345678');
     // Tombol mata: password yang sedang diketik bisa dilihat, lalu disembunyikan lagi.
-    const eye = screen.getAllByRole('button', { name: 'Tampilkan password' })[0]!;
+    const eye = screen.getAllByRole('button', { name: 'Tampilkan Password' })[0]!;
     await userEvent.click(eye);
     expect(current).toHaveAttribute('type', 'text');
-    await userEvent.click(screen.getAllByRole('button', { name: 'Sembunyikan password' })[0]!);
+    await userEvent.click(screen.getAllByRole('button', { name: 'Sembunyikan Password' })[0]!);
     expect(current).toHaveAttribute('type', 'password');
-    await userEvent.type(screen.getByLabelText('Password baru'), 'Baru12345678');
-    await userEvent.type(screen.getByLabelText('Ulangi password baru'), 'Baru12345678');
-    await userEvent.click(screen.getAllByRole('button', { name: 'Ubah password' }).at(-1)!);
+    await userEvent.type(screen.getByLabelText('Password Baru'), 'Baru12345678');
+    await userEvent.type(screen.getByLabelText('Ulangi Password Baru'), 'Baru12345678');
+    await userEvent.click(screen.getAllByRole('button', { name: 'Ubah Password' }).at(-1)!);
     expect(await screen.findByText('Password berhasil diubah.')).toBeInTheDocument();
     expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ currentPassword: 'Lama12345678', newPassword: 'Baru12345678' });
     expect(current).toHaveValue('');
@@ -73,11 +73,11 @@ describe('AppShell', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
     mockApi({ 'GET /auth/me': { user: user('viewer') }, 'GET /layers': LAYERS, 'GET /stats/kecamatan': [], 'POST /auth/logout': reply(599) });
     renderAt('/log-tidak-ada');
-    expect(await screen.findByRole('button', { name: 'Perkecil menu' }, { timeout: 5000 })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Menu akun' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Pengaturan akun' }));
+    expect(await screen.findByRole('button', { name: 'Perkecil Menu' }, { timeout: 5000 })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Menu Akun' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Pengaturan Akun' }));
     await waitFor(() => expect(window.location.pathname).toBe('/akun'));
-    await userEvent.click(screen.getByRole('button', { name: 'Menu akun' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Menu Akun' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Keluar' }));
     await waitFor(() => expect(window.location.pathname).toBe('/login'));
   });
@@ -193,7 +193,7 @@ describe('HoverTip & featureLabel', () => {
 });
 
 describe('GlobalSearch', () => {
-  const box = () => screen.findByRole('combobox', { name: 'Cari data di semua layer' }, { timeout: 5000 });
+  const box = () => screen.findByRole('combobox', { name: 'Cari Data di Semua Layer' }, { timeout: 5000 });
   const search = async (q: string) => {
     const el = await box();
     await userEvent.clear(el);
@@ -212,12 +212,12 @@ describe('GlobalSearch', () => {
       },
     });
     renderAt('/akun');
-    await choose(/Batasi pencarian ke layer/, 'PJU');
+    await choose(/Batasi pencarian ke layer/i, 'PJU');
     await search('jalan');
     await waitFor(() => expect(calls.at(-1)?.url).toBe('/search?q=jalan&layer=pju'));
-    expect(screen.queryByRole('option', { name: /^Kondisi Jalan 2026/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /^Kondisi Jalan 2026/i })).not.toBeInTheDocument();
     await userEvent.keyboard('{Escape}');
-    await choose(/Batasi pencarian ke layer/, 'Semua layer');
+    await choose(/Batasi pencarian ke layer/i, 'Semua Layer');
 
     await search('ben');
     expect(await screen.findByRole('option', { name: /^Bendungan/ }, { timeout: 5000 })).toHaveTextContent('Kalurahan di Kec.');
@@ -235,7 +235,7 @@ describe('GlobalSearch', () => {
     await waitFor(() => expect(window.location.pathname).toBe('/peta'));
 
     await search('jalan');
-    await userEvent.click(await screen.findByRole('option', { name: /^Kondisi Jalan 2026/ }, { timeout: 5000 }));
+    await userEvent.click(await screen.findByRole('option', { name: /^Kondisi Jalan 2026/i }, { timeout: 5000 }));
     // Hasil layer membuka peta dan menyalakan layernya.
     await waitFor(() => expect(window.location.pathname).toBe('/peta'));
 
@@ -268,14 +268,14 @@ describe('Dialog fitur: kasus tepi', () => {
     const calls = mockApi(routes('editor', road({ kondisi: 'Rusak Ringan' }, [PHOTO]), { 'PATCH /media/5': reply(500, { error: 'Gagal simpan foto' }) }));
     renderAt('/data/jalan-kabupaten?edit=1');
     const d = await dialog();
-    const caption = await within(d).findByLabelText('Keterangan foto');
+    const caption = await within(d).findByLabelText('Keterangan Foto');
     act(() => { caption.focus(); caption.blur(); }); // tidak berubah: tidak ada PATCH
     expect(calls.some((c) => c.url === '/media/5')).toBe(false);
     await userEvent.clear(caption);
     act(() => caption.blur());
     await waitFor(() => expect(calls.filter((c) => c.url === '/media/5').at(-1)?.body).toMatchObject({ caption: null }));
     expect(await screen.findByText('Gagal simpan foto')).toBeInTheDocument();
-    fireEvent.change(within(d).getByLabelText('Tanggal survei'), { target: { value: '' } });
+    await setDate(within(d).getByRole('group', { name: 'Tanggal Survei' }), '');
     await waitFor(() => expect(calls.filter((c) => c.url === '/media/5').at(-1)?.body).toMatchObject({ tanggal: null }));
     await choose('Urgensi', 'Tinggi');
     await waitFor(() => expect(calls.filter((c) => c.url === '/media/5').at(-1)?.body).toMatchObject({ urgensi: 'tinggi' }));
@@ -309,9 +309,9 @@ describe('Dialog fitur: kasus tepi', () => {
     let d = await dialog();
     const file = () => d.querySelector('input[type=file]') as HTMLInputElement;
     await userEvent.upload(file(), [new File(['a'], 'a.jpg', { type: 'image/jpeg' }), new File(['b'], 'b.jpg', { type: 'image/jpeg' })]);
-    fireEvent.change(within(d).getAllByLabelText('Tanggal survei')[0]!, { target: { value: '2026-10-01' } });
-    expect(within(d).getAllByLabelText('Tanggal survei')[0]).toHaveValue('2026-10-01');
-    await userEvent.click(within(d).getAllByRole('button', { name: 'Hapus foto' })[1]!);
+    await setDate(within(d).getAllByRole('group', { name: 'Tanggal Survei' })[0]!, '2026-10-01');
+    expect(dateOf(within(d).getAllByRole('group', { name: 'Tanggal Survei' })[0]!)).toBe('2026-10-01');
+    await userEvent.click(within(d).getAllByRole('button', { name: 'Hapus Foto' })[1]!);
     expect(URL.revokeObjectURL).toHaveBeenCalledTimes(1);
     await userEvent.type(within(d).getByLabelText(/Nama Ruas/), 'Jl. Baru');
     fireEvent.change(within(d).getByLabelText('Geometri (WKT)'), { target: { value: 'LINESTRING (110 -7, 111 -7)' } });
@@ -321,7 +321,7 @@ describe('Dialog fitur: kasus tepi', () => {
     // Dialog baru: foto antrean yang belum disimpan dilepas saat dialog ditutup.
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument()); // modal tertutup penuh dulu (aria-hidden dilepas)
     vi.mocked(URL.revokeObjectURL).mockClear();
-    await userEvent.click(await screen.findByRole('button', { name: /Tambah fitur/ }, { timeout: 5000 }));
+    await userEvent.click(await screen.findByRole('button', { name: /Tambah fitur/i }, { timeout: 5000 }));
     d = await dialog();
     await userEvent.upload(file(), new File(['c'], 'c.jpg', { type: 'image/jpeg' }));
     await userEvent.click(within(d).getByRole('button', { name: 'Batal' }));
@@ -340,7 +340,7 @@ describe('Dialog fitur: kasus tepi', () => {
     fakeMap.getBounds.mockReturnValue({ contains: () => false } as never);
     renderAt('/data/titik-kawasan?edit=4');
     const d = await dialog();
-    expect(await within(d).findByRole('link', { name: /Cari lokasi/ })).toHaveAttribute('href', expect.stringContaining('Alun-Alun%20Wates%2C%20Kulon%20Progo'));
+    expect(await within(d).findByRole('link', { name: /Cari lokasi/i })).toHaveAttribute('href', expect.stringContaining('Alun-Alun%20Wates%2C%20Kulon%20Progo'));
     await waitFor(() => expect(fakeMap.easeTo).toHaveBeenCalledWith({ center: [110.1, -7.8] }));
     const wkt = within(d).getByLabelText('Geometri (WKT)');
     fireEvent.change(wkt, { target: { value: '-7.85, 110.15' } });
@@ -360,7 +360,7 @@ describe('Dialog fitur: kasus tepi', () => {
     const d = await dialog();
     await choose('Kelas', 'Hutan');
     // Poligon digambar di peta: 3 klik, cincin ditutup otomatis; kursor silang hanya selama mode gambar.
-    await userEvent.click(within(d).getByRole('button', { name: 'Gambar poligon' }));
+    await userEvent.click(within(d).getByRole('button', { name: 'Gambar Poligon' }));
     expect(fakeMap.canvas.style.cursor).toBe('crosshair');
     for (const [lng, lat] of [[110, -7], [111, -7], [111, -8]]) act(() => fakeMap.fire('click', { lngLat: { lng, lat } }));
     expect(within(d).getByText(/^3 titik, klik titik pertama untuk menutup/)).toBeInTheDocument();
@@ -383,9 +383,9 @@ describe('Unggah Data: layer titik', () => {
     const d = await screen.findByRole('dialog');
     const big = new File(['PK'], 'pju.zip', { type: 'application/zip' });
     Object.defineProperty(big, 'size', { value: 3 * 1024 * 1024 });
-    await userEvent.upload(within(d).getByLabelText('File shapefile atau GeoJSON'), big);
+    await userEvent.upload(within(d).getByLabelText('File Shapefile atau GeoJSON'), big);
     expect(within(d).getByText(/3 MB/)).toBeInTheDocument();
-    await userEvent.click(within(d).getByRole('button', { name: 'Periksa file' }));
+    await userEvent.click(within(d).getByRole('button', { name: 'Periksa File' }));
     await waitFor(() => expect(fakeMap.addLayer).toHaveBeenCalledWith(expect.objectContaining({ type: 'circle', paint: expect.objectContaining({ 'circle-color': '#EAB308' }) })));
     fakeMap.removeLayer.mockImplementationOnce(() => { throw new Error('style sedang dimuat'); });
     await userEvent.click(within(d).getByRole('button', { name: 'Batal' }));
@@ -422,15 +422,15 @@ describe('Widget Ringkasan', () => {
       { tahun: 2027, miskin: 90, jalanKm: 12, jalanRusakKm: 1 },
     ];
     inRouter(<TimeSeries points={points} />);
-    await choose(/Analisis/, 'Ruas jalan');
-    const legend = screen.getByRole('list', { name: 'Data yang ditampilkan' });
+    await choose(/Analisis/, 'Ruas Jalan');
+    const legend = screen.getByRole('list', { name: 'Data yang Ditampilkan' });
     const item = within(legend).getAllByRole('listitem')[1]!;
     fireEvent.mouseEnter(item);
     fireEvent.mouseLeave(item);
     const surface = document.querySelector('.recharts-wrapper');
     if (surface) { fireEvent.mouseMove(surface, { clientX: 300, clientY: 100 }); fireEvent.mouseLeave(surface); }
-    await choose(/Analisis/, 'Jumlah fitur layer');
-    expect(screen.getByRole('button', { name: /Analisis/ })).toHaveTextContent('Jumlah fitur layer');
+    await choose(/Analisis/, 'Jumlah Fitur Layer');
+    expect(screen.getByRole('button', { name: /Analisis/ })).toHaveTextContent('Jumlah Fitur Layer');
   });
 
   it('TimeSeries: memuat, galat, dan tanpa data', async () => {
@@ -473,7 +473,7 @@ describe('Widget Ringkasan', () => {
     await waitFor(() => expect(fakeMap.addSource).toHaveBeenCalledWith(`src-${shown[0]!.slug}`, expect.anything()));
     expect(fakeMap.addSource).not.toHaveBeenCalledWith('src-potensi-bencana', expect.anything());
     expect(screen.getByText(`+${shown.length - 3}`)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Peta wilayah/ })).toHaveAttribute('href', '/peta');
+    expect(screen.getByRole('link', { name: /Peta wilayah/i })).toHaveAttribute('href', '/peta');
   });
 });
 
@@ -593,7 +593,7 @@ describe('Grafik: tooltip & kasus tepi', () => {
     await waitFor(() => expect(tooltip()).toContain('0 (0%) dibanding 2024'));
     const area = document.querySelector('.recharts-area-area');
     if (area) fireEvent.mouseEnter(area);
-    await choose(/Analisis/, 'Ruas jalan');
+    await choose(/Analisis/, 'Ruas Jalan');
     hoverAt(60);
     hoverAt(560);
     await waitFor(() => expect(tooltip()).toMatch(/\+3 dibanding 2024/)); // jalan rusak 0 -> 3: tanpa persen
@@ -603,8 +603,8 @@ describe('Grafik: tooltip & kasus tepi', () => {
     const pts = (layers: Record<string, number> | undefined): TimePoint[] => [2024, 2025].map((tahun) => ({ tahun, miskin: 10, jalanKm: 0, jalanRusakKm: 0, layers }));
     const four = { A: 1, B: 2, C: 3, D: 4 };
     const { rerender } = inRouter(<TimeSeries points={pts(four)} />);
-    await choose(/Analisis/, 'Jumlah fitur layer');
-    expect(document.querySelectorAll('ul[aria-label="Data yang ditampilkan"] polygon').length).toBeGreaterThanOrEqual(2); // wajik & segitiga
+    await choose(/Analisis/, 'Jumlah Fitur Layer');
+    expect(document.querySelectorAll('ul[aria-label="Data yang Ditampilkan"] polygon').length).toBeGreaterThanOrEqual(2); // wajik & segitiga
     rerender(<QueryClientProvider client={createQueryClient()}><PrefsProvider><MemoryRouter><TimeSeries points={pts(undefined)} /></MemoryRouter></PrefsProvider></QueryClientProvider>);
     expect(screen.getByRole('button', { name: /Analisis/ })).toHaveTextContent('Kemiskinan');
   });
@@ -615,7 +615,7 @@ describe('Kasus tepi lain', () => {
   it('pencarian sebelum daftar layer termuat', async () => {
     mockApi({ 'GET /auth/me': { user: user() }, 'GET /layers': () => new Promise(() => undefined), 'GET /stats/kecamatan': [], 'GET /search': { regions: [], features: [] } });
     renderAt('/akun');
-    const box = await screen.findByRole('combobox', { name: 'Cari data di semua layer' }, { timeout: 5000 });
+    const box = await screen.findByRole('combobox', { name: 'Cari Data di Semua Layer' }, { timeout: 5000 });
     await userEvent.type(box, 'jalan');
     expect(await screen.findByText('Tidak ditemukan', {}, { timeout: 5000 })).toBeInTheDocument();
   });
@@ -649,8 +649,8 @@ describe('Kasus tepi lain', () => {
     renderAt('/data/pju');
     await userEvent.click(await screen.findByRole('button', { name: /Unggah Data/ }, { timeout: 5000 }));
     const d = await screen.findByRole('dialog');
-    await userEvent.upload(within(d).getByLabelText('File shapefile atau GeoJSON'), new File(['PK'], 'a.zip', { type: 'application/zip' }));
-    await userEvent.click(within(d).getByRole('button', { name: 'Periksa file' }));
+    await userEvent.upload(within(d).getByLabelText('File Shapefile atau GeoJSON'), new File(['PK'], 'a.zip', { type: 'application/zip' }));
+    await userEvent.click(within(d).getByRole('button', { name: 'Periksa File' }));
     await within(d).findByTestId('map');
     expect(fakeMap.addLayer).not.toHaveBeenCalled();
   });

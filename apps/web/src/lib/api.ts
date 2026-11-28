@@ -58,6 +58,9 @@ export const endpoints = {
   layers: () => api<Layer[]>('/layers'),
   createLayer: (body: unknown) => api<Layer>('/layers', { method: 'POST', json: body }),
   updateLayer: (id: number, body: unknown) => api<Layer>(`/layers/${id}`, { method: 'PATCH', json: body }),
+  layerKeys: (id: number) => api<string[]>(`/layers/${id}/keys`),
+  fillField: (id: number, key: string, value: string | number | boolean) => api<{ updated: number }>(`/layers/${id}/fill`, { method: 'POST', json: { key, value } }),
+  dropField: (id: number, key: string) => api<Layer & { cleared: number }>(`/layers/${id}/fields/${key}`, { method: 'DELETE' }),
   deleteLayer: (id: number) => api<void>(`/layers/${id}`, { method: 'DELETE' }),
 
   features: (slug: string, p: { page?: number; limit?: number; q?: string; kecamatan?: string; sort?: string; order?: 'asc' | 'desc' }) =>

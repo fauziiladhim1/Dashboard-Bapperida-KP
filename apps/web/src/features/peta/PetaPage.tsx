@@ -22,7 +22,9 @@ import { canEdit, useMe } from '@/hooks/use-auth';
 import { FeatureDialog } from '@/features/data/FeatureDialog';
 import { DrawPanel, DrawTool, type Draft } from './DrawTool';
 import { fmt, fmtCompact, fmtDate, getLocale } from '@/lib/format';
-import { classLabel, classOrder, colorField, colorOf, groupRows, KULON_PROGO_CENTER, legendOf } from '@/lib/layer-style';
+import { activeFields, classLabel, classOrder, colorField, colorOf, groupRows, KULON_PROGO_CENTER, legendOf } from '@/lib/layer-style';
+import { fill } from '@/components/common/card-style';
+import { showValue } from '@/lib/field-types';
 import { usePrefs, useT } from '@/lib/prefs';
 import { cn, sentenceCase } from '@/lib/utils';
 import { isTimed, latestVersions, patchParams, pickYear, useYear, yearGaps, type YearGap } from '@/lib/year-range';
@@ -483,8 +485,10 @@ export const popupRows = (layer: Layer, p: Record<string, unknown>): [string, un
     // Sumber & tanggal ambil sudah di catatan sumber popup.
     || k === 'sumber' || k === 'tanggal_ambil';
   const keep = (k: string) => !empty(p[k]) || WILAYAH.includes(k) || !!layer.fields.find((f) => f.key === k)?.required;
-  const fixed = layer.fields.map((f) => f.key).filter((k) => !skip(k));
-  const extra = Object.keys(p).filter((k) => !fixed.includes(k) && !skip(k) && !HIDDEN_ATTR.test(k));
+  // Field skema: urutan & pilihan dari "Kelola field" (tersembunyi atau popup:false tidak tampil). Atribut di luar skema
+  // (kolom impor) tetap tampil seperti biasa; kunci skema yang dimatikan tidak muncul lagi lewat jalur ini.
+  const fixed = activeFields(layer).filter((f) => f.popup !== false).map((f) => f.key).filter((k) => !skip(k));
+  const extra = Object.keys(p).filter((k) => !layer.fields.some((f) => f.key === k) && !skip(k) && !HIDDEN_ATTR.test(k));
   const survey = empty(p.tahun_survei) ? [] : ['tahun_survei'];
   return [...survey, ...fixed, ...extra, ...region].filter(keep).map((k) => [k, empty(p[k]) ? null : p[k]]);
 };
@@ -498,7 +502,7 @@ const SYSTEM_LABEL: Record<string, string> = { kecamatan: 'Kecamatan', kalurahan
 const prettyKey = (k: string) => SYSTEM_LABEL[k] ?? k.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 
 const attrValue = (layer: Layer, k: string, v: unknown) => {
-  if (typeof v !== 'number') return String(v);
+  if (typeof v !== 'number') return showValue(v);
   // Atribut penentu warna bertingkat: nilai + nama kelasnya, mis. "1.633 (Sangat tinggi)".
   const stop = layer.style.steps?.field === k ? layer.style.steps.stops.findLast((s) => v >= s.min) : undefined;
   if (stop) return `${fmt(v)} (${stop.label.replace(/\s*\(.*$/, '')})`;
@@ -616,6 +620,14 @@ export function FeaturePopup({ selected, tahun, onClose }: { selected: Selected;
           {/* Galeri dokumentasi hanya untuk layer berkondisi (data statis tidak memakai foto). */}
           {data && hasDocs(layer) && data.media.length > 0 && <DocGallery media={data.media} />}
           {rows.length > 0 && <AttrRows rows={rows} />}
+          {/* Baris tambahan popup dari "Kelola field": teks bebas dengan {field} diisi atribut fitur (format sama dengan baris atribut). */}
+          {data && !!layer.style.popupLines?.length && (
+            <div className="flex flex-col gap-1 border-t border-separator px-3.5 py-2 text-xs text-heading">
+              {layer.style.popupLines.map((l, i) => (
+                <p key={i} className="whitespace-pre-line">{fill(l, Object.fromEntries(Object.entries(props).map(([k, v]) => [k, empty(v) ? '–' : attrValue(layer, k, v)])))}</p>
+              ))}
+            </div>
+          )}
           {(layer.sumber || data) && (
             <p className="flex flex-col gap-0.5 border-t border-separator px-3.5 py-2 text-[11px] leading-snug text-muted">
               {layer.sumber && <span><span className="font-medium text-heading">{t('map.source')}</span> {layer.sumber}</span>}

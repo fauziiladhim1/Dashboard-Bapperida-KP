@@ -2,7 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { fakeMap } from './map-mock';
-import { choose, LAYERS, mockApi, page, renderAt, reply, user } from './utils';
+import { choose, LAYERS, mockApi, page, renderAt, reply, user, dateOf, setDate } from './utils';
 
 const ROADS = page(
   [
@@ -42,18 +42,18 @@ describe('Data: tabel', () => {
     expect(screen.getByRole('columnheader', { name: 'Nama Ruas' })).toBeInTheDocument();
     expect(screen.getByText('Geometri').nextSibling).toHaveTextContent('Garis');
     expect(screen.getByText('45 fitur')).toBeInTheDocument();
-    expect(screen.getAllByText('–', { selector: 'td' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('–', { selector: 'td span' }).length).toBeGreaterThan(0);
 
-    await userEvent.type(screen.getByLabelText(/Cari atribut/), 'w');
+    await userEvent.type(screen.getByLabelText(/Cari atribut/i), 'w');
     await waitFor(() => expect(calls.filter((c) => c.url.includes('/features')).at(-1)?.url).toBe('/layers/jalan-kabupaten/features?page=1&limit=20&q=w'));
-    await userEvent.click(screen.getByRole('button', { name: 'Halaman berikutnya' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Halaman Berikutnya' }));
     await waitFor(() => expect(calls.some((c) => c.url.includes('/features?page=2'))).toBe(true));
-    await userEvent.click(screen.getByRole('button', { name: 'Halaman sebelumnya' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Halaman Sebelumnya' }));
     await userEvent.click(screen.getByRole('button', { name: 'Halaman 3' }));
     await waitFor(() => expect(calls.filter((c) => c.url.includes('/features')).at(-1)?.url).toContain('page=3'));
     expect(screen.getByRole('button', { name: 'Halaman 3' })).toHaveAttribute('aria-current', 'page');
 
-    await choose(/Pilih layer/, 'Sekolah');
+    await choose(/Pilih layer/i, 'Sekolah');
     expect(await screen.findByText('SD 1')).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'alamat' })).toBeInTheDocument();
     // Meta layer berlabel, bukan deret "a · b · c".
@@ -67,7 +67,7 @@ describe('Data: tabel', () => {
     renderAt('/data/kawasan-pertanian');
     expect(await screen.findByText('Turunan (baca-saja)', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(await screen.findByText('Belum ada data.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Tambah fitur/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Tambah fitur/i })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Ekspor/ }));
     expect(await screen.findByRole('menuitem', { name: 'CSV (Excel)' })).toHaveAttribute('href', '/api/v1/layers/kawasan-pertanian/export?format=csv');
   });
@@ -75,7 +75,7 @@ describe('Data: tabel', () => {
   it('filter kecamatan, urutan, dan ekspor mengikuti filter', async () => {
     const calls = mockApi({ ...base(), 'GET /stats/kecamatan': ['Wates', 'Sentolo'], 'GET /layers/data-sekolah/features': page([]) });
     await open();
-    await choose('Filter kecamatan', 'Wates');
+    await choose('Filter Kecamatan', 'Wates');
     await waitFor(() => expect(calls.filter((c) => c.url.includes('/features')).at(-1)?.url).toBe('/layers/jalan-kabupaten/features?page=1&limit=20&kecamatan=Wates'));
     expect(window.location.search).toBe('?kec=Wates');
 
@@ -95,10 +95,10 @@ describe('Data: tabel', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Ubah 1' }));
     expect(window.location.search).toBe('?kec=Wates&edit=1');
     await userEvent.click(await screen.findByRole('button', { name: 'Batal' }));
-    await choose(/Pilih layer/, 'Sekolah');
+    await choose(/Pilih layer/i, 'Sekolah');
     await waitFor(() => expect(calls.filter((c) => c.url.includes('/features')).at(-1)?.url).toContain('/layers/data-sekolah/features?page=1&limit=20&kecamatan=Wates'));
 
-    await choose('Filter kecamatan', 'Semua kecamatan');
+    await choose('Filter Kecamatan', 'Semua Kecamatan');
     await waitFor(() => expect(window.location.search).toBe(''));
   }, 30_000); // banyak interaksi; lambat saat suite penuh berjalan paralel
 
@@ -125,13 +125,13 @@ describe('Data: tabel', () => {
 
     await userEvent.click(screen.getByRole('checkbox', { name: /^Pilih 2/ }));
     await userEvent.click(screen.getByRole('checkbox', { name: /^Pilih 2/ }));
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Pilih semua' }));
-    expect(screen.getByRole('checkbox', { name: 'Pilih semua' })).toBeChecked();
-    await userEvent.click(screen.getByRole('button', { name: /Hapus 2 terpilih/ }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Pilih Semua' }));
+    expect(screen.getByRole('checkbox', { name: 'Pilih Semua' })).toBeChecked();
+    await userEvent.click(screen.getByRole('button', { name: /Hapus 2 terpilih/i }));
     await userEvent.click(await screen.findByRole('button', { name: 'Ya, hapus' }));
     await waitFor(() => expect(calls.filter((c) => c.method === 'POST').at(-1)?.body).toEqual({ ids: [1, 2] }));
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Pilih semua' }));
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Pilih semua' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Pilih Semua' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Pilih Semua' }));
 
     fail = true;
     await userEvent.click(screen.getByRole('button', { name: 'Hapus 2' }));
@@ -151,14 +151,14 @@ describe('Data: urut kolom & paginasi', () => {
     expect(header(/Nama Ruas/)).toHaveAttribute('aria-sort', 'ascending');
     await userEvent.click(header(/Nama Ruas/));
     await waitFor(() => expect(last()).toContain('sort=nama_ruas&order=desc'));
-    await userEvent.click(header(/Tahun data/));
+    await userEvent.click(header(/Tahun data/i));
     await waitFor(() => expect(last()).toContain('sort=tahun_data&order=asc'));
     await userEvent.click(header(/^ID/));
     await waitFor(() => expect(last()).toContain('sort=id&order=asc'));
     // Tanpa pemilih filter atribut terpisah.
     expect(screen.queryByRole('button', { name: /Saring atribut/ })).not.toBeInTheDocument();
     // 45 baris / 20 = 3 halaman: lompat ke 3, lalu 50 baris per halaman = kembali ke halaman 1.
-    await userEvent.type(screen.getByRole('spinbutton', { name: /Lompat ke halaman/ }), '3{Enter}');
+    await userEvent.type(screen.getByRole('spinbutton', { name: /Lompat ke halaman/i }), '3{Enter}');
     await waitFor(() => expect(last()).toContain('page=3&limit=20'));
     await choose('Baris', '50');
     await waitFor(() => expect(last()).toContain('page=1&limit=50'));
@@ -172,10 +172,10 @@ describe('Data: gambar geometri di peta form fitur', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Ubah 1' }));
     const dialog = await screen.findByRole('dialog');
     const wkt = within(dialog).getByLabelText('Geometri (WKT)');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Gambar garis' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Gambar Garis' }));
     expect(wkt).toHaveValue('');
     expect(within(dialog).queryByTestId('geojson')).not.toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Batalkan titik' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Batalkan Titik' })).toBeDisabled();
     const click = (lng: number, lat: number) => act(() => fakeMap.fire('click', { lngLat: { lng, lat } }));
     click(110.1, -7.8);
     expect(wkt).toHaveValue(''); // 1 titik belum cukup untuk garis
@@ -184,9 +184,9 @@ describe('Data: gambar geometri di peta form fitur', () => {
     click(110.3, -7.82);
     expect(wkt).toHaveValue('LINESTRING (110.1 -7.8, 110.2 -7.81, 110.3 -7.82)');
     expect(within(dialog).getByTestId('geojson')).toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Batalkan titik' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Batalkan Titik' }));
     expect(wkt).toHaveValue('LINESTRING (110.1 -7.8, 110.2 -7.81)');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Hapus gambar' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Hapus Gambar' }));
     expect(wkt).toHaveValue('');
     click(110.1, -7.8);
     click(110.4, -7.9);
@@ -195,7 +195,7 @@ describe('Data: gambar geometri di peta form fitur', () => {
     expect(within(dialog).getByText('Titik ditolak: garis saling memotong')).toBeInTheDocument();
     click(110.4, -7.7); // klik ulang titik terakhir = selesai
     expect(within(dialog).queryByRole('button', { name: 'Selesai' })).not.toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Gambar garis' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Gambar Garis' }));
     click(110.1, -7.8);
     click(110.4, -7.9);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Selesai' }));
@@ -212,34 +212,34 @@ describe('Data: keputusan', () => {
   it('dialog notulensi: pilih keputusan, tanggal rapat, notulensi; batal = tanpa simpan', async () => {
     const calls = mockApi({ ...base(), 'PATCH /features/1': ROAD_DETAIL, 'PATCH /features/2': ROAD_DETAIL });
     await open();
-    await userEvent.click(screen.getByRole('button', { name: 'Keputusan fitur 1' }));
-    const d = await screen.findByRole('dialog', { name: 'Notulensi & keputusan' });
+    await userEvent.click(screen.getByRole('button', { name: 'Keputusan Fitur 1' }));
+    const d = await screen.findByRole('dialog', { name: 'Notulensi & Keputusan' });
     await userEvent.click(within(d).getByRole('radio', { name: /^Ditunda/ }));
     // Urgensi manual menggantikan hasil dari kondisi (badge ringkasan ikut berubah).
     await choose('Urgensi', 'Tinggi');
     expect(within(d).getByText('Ditetapkan manual: menggantikan urgensi dari kondisi di tabel Data dan peta.')).toBeInTheDocument();
-    const note = within(d).getByLabelText('Notulensi / catatan rapat (opsional)');
+    const note = within(d).getByLabelText('Notulensi / Catatan Rapat (opsional)');
     await userEvent.type(note, '  tunggu anggaran ');
     expect(within(d).getByText('18/2000')).toBeInTheDocument();
-    fireEvent.change(within(d).getByLabelText('Tanggal rapat'), { target: { value: '2026-11-02' } });
-    await userEvent.type(within(d).getByLabelText('Penanggung jawab tindak lanjut'), ' DPUPKP ');
-    await userEvent.click(within(d).getByRole('button', { name: 'Simpan notulensi' }));
+    await setDate(within(d).getByRole('group', { name: 'Tanggal Rapat' }), '2026-11-02');
+    await userEvent.type(within(d).getByLabelText('Penanggung Jawab Tindak Lanjut'), ' DPUPKP ');
+    await userEvent.click(within(d).getByRole('button', { name: 'Simpan Notulensi' }));
     await waitFor(() => expect(calls.find((c) => c.url === '/features/1')?.body).toEqual({ properties: { keputusan: 'Ditunda', urgensi: 'tinggi', tanggal_keputusan: '2026-11-02', pj_keputusan: 'DPUPKP', catatan_keputusan: 'tunggu anggaran',
       // Ditunda: kolom pelaksanaan dikosongkan (hanya bermakna untuk Diproses/Selesai).
       anggaran: null, sumber_dana: null, tahun_target: null, tanggal_selesai: null } }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
     // Tanggal dikosongkan = null; default keputusan = opsi pertama.
-    await userEvent.click(screen.getByRole('button', { name: 'Keputusan fitur 2' }));
-    const d2 = await screen.findByRole('dialog', { name: 'Notulensi & keputusan' });
-    fireEvent.change(within(d2).getByLabelText('Tanggal rapat'), { target: { value: '' } });
-    await userEvent.click(within(d2).getByRole('button', { name: 'Simpan notulensi' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Keputusan Fitur 2' }));
+    const d2 = await screen.findByRole('dialog', { name: 'Notulensi & Keputusan' });
+    await setDate(within(d2).getByRole('group', { name: 'Tanggal Rapat' }), '');
+    await userEvent.click(within(d2).getByRole('button', { name: 'Simpan Notulensi' }));
     await waitFor(() => expect(calls.find((c) => c.url === '/features/2')?.body).toEqual({ properties: { keputusan: 'Diproses', urgensi: null, tanggal_keputusan: null, pj_keputusan: null, catatan_keputusan: null,
       anggaran: null, sumber_dana: null, tahun_target: null, tanggal_selesai: null } }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     // Batal = tidak ada PATCH baru.
-    await userEvent.click(screen.getByRole('button', { name: 'Keputusan fitur 1' }));
-    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Notulensi & keputusan' })).getByRole('button', { name: 'Batal' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Keputusan Fitur 1' }));
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Notulensi & Keputusan' })).getByRole('button', { name: 'Batal' }));
     expect(calls.filter((c) => c.url === '/features/1')).toHaveLength(1);
   }, 30_000);
 
@@ -247,15 +247,15 @@ describe('Data: keputusan', () => {
     const saved = { ...ROADS.data[0]!, id: '1', properties: { ...ROADS.data[0]!.properties, keputusan: 'Tidak Diproses', urgensi: 'sedang', tanggal_keputusan: '2026-10-01', pj_keputusan: 'Bina Marga', catatan_keputusan: 'rapat 1' } };
     mockApi({ ...base(), 'GET /layers/jalan-kabupaten/features': page([saved]), 'PATCH /features/1': reply(500, { error: 'Server error' }) });
     await open();
-    await userEvent.click(screen.getByRole('button', { name: 'Keputusan fitur 1' }));
-    const d = await screen.findByRole('dialog', { name: 'Notulensi & keputusan' });
+    await userEvent.click(screen.getByRole('button', { name: 'Keputusan Fitur 1' }));
+    const d = await screen.findByRole('dialog', { name: 'Notulensi & Keputusan' });
     expect(within(d).getByRole('radio', { name: /^Tidak Diproses/ })).toBeChecked();
-    expect(within(d).getByLabelText('Tanggal rapat')).toHaveValue('2026-10-01');
-    expect(within(d).getByLabelText('Penanggung jawab tindak lanjut')).toHaveValue('Bina Marga');
-    expect(within(d).getByLabelText('Notulensi / catatan rapat (opsional)')).toHaveValue('rapat 1');
+    expect(dateOf(within(d).getByRole('group', { name: 'Tanggal Rapat' }))).toBe('2026-10-01');
+    expect(within(d).getByLabelText('Penanggung Jawab Tindak Lanjut')).toHaveValue('Bina Marga');
+    expect(within(d).getByLabelText('Notulensi / Catatan Rapat (opsional)')).toHaveValue('rapat 1');
     // Konteks fitur: nama layer + id dan urgensi dari kondisinya.
     expect(within(d).getByText('Kondisi Jalan 2026 #1')).toBeInTheDocument();
-    await userEvent.click(within(d).getByRole('button', { name: 'Simpan notulensi' }));
+    await userEvent.click(within(d).getByRole('button', { name: 'Simpan Notulensi' }));
     expect(await within(d).findByText('Server error')).toBeInTheDocument();
   });
 
@@ -267,7 +267,7 @@ describe('Data: keputusan', () => {
     expect(await screen.findByText('Tidak Diproses', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByText('Diproses').closest('[title]')).toHaveAttribute('title', 'segera');
     expect(screen.getByText('Ditunda')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Keputusan fitur/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Keputusan fitur/i })).not.toBeInTheDocument();
   });
 });
 
@@ -283,7 +283,7 @@ describe('Data: form fitur', () => {
     await open();
     await userEvent.click(screen.getByRole('button', { name: 'Ubah 1' }));
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('Ubah fitur #1')).toBeInTheDocument();
+    expect(within(dialog).getByText('Ubah Fitur #1')).toBeInTheDocument();
     expect(within(dialog).getByText('OBJECTID')).toBeInTheDocument();
     expect(within(dialog).getByTestId('geojson')).toBeInTheDocument();
     // Geometri tersimpan tampil sebagai WKT (Terraformer) dan bisa diubah.
@@ -300,7 +300,7 @@ describe('Data: form fitur', () => {
     fireEvent.change(wkt, { target: { value: 'LINESTRING (110 -7, 111 -7)' } });
 
     // Metadata foto disimpan lewat PATCH saat keterangan ditinggalkan.
-    const caption = within(dialog).getByLabelText('Keterangan foto');
+    const caption = within(dialog).getByLabelText('Keterangan Foto');
     await userEvent.type(caption, 'Retak memanjang');
     act(() => caption.blur());
     await waitFor(() => expect(calls.find((c) => c.method === 'PATCH' && c.url === '/media/5')?.body).toMatchObject({ caption: 'Retak memanjang' }));
@@ -308,7 +308,7 @@ describe('Data: form fitur', () => {
     const input = dialog.querySelector('input[type=file]') as HTMLInputElement;
     await userEvent.upload(input, new File(['img'], 'foto.jpg', { type: 'image/jpeg' }));
     await waitFor(() => expect(calls.some((c) => c.url === '/features/1/media')).toBe(true));
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Hapus foto' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Hapus Foto' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Yakin hapus?' }));
     await waitFor(() => expect(calls.some((c) => c.method === 'DELETE' && c.url === '/media/5')).toBe(true));
 
@@ -336,7 +336,7 @@ describe('Data: form fitur', () => {
     URL.revokeObjectURL = () => undefined;
     const calls = mockApi({ ...base(), 'POST /layers/jalan-kabupaten/features': { id: '3' }, 'POST /features/3/media': { id: 7 } });
     await open();
-    await userEvent.click(screen.getByRole('button', { name: /Tambah fitur/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Tambah fitur/i }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Tambah Kondisi Jalan 2026')).toBeInTheDocument();
     await userEvent.type(within(dialog).getByLabelText(/Nama Ruas/), 'Jl. Baru');
@@ -361,7 +361,7 @@ describe('Data: form fitur', () => {
     });
     const upload = calls.find((c) => c.url === '/features/3/media')!.body as FormData;
     expect(upload.get('tanggal')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    await userEvent.click(screen.getByRole('button', { name: /Tambah fitur/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Tambah fitur/i }));
     await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Batal' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
@@ -436,10 +436,10 @@ describe('Data: form fitur', () => {
     mockApi({ ...base('viewer'), 'GET /features/1': { ...ROAD_DETAIL, properties: { nama_ruas: 'Jl. Wates' }, geometry: undefined } });
     await open('/data/jalan-kabupaten?edit=1');
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('Detail fitur #1')).toBeInTheDocument();
+    expect(within(dialog).getByText('Detail Fitur #1')).toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: 'Simpan' })).not.toBeInTheDocument();
     expect(within(dialog).getByLabelText('Geometri (WKT)')).toHaveAttribute('readonly');
-    expect(within(dialog).queryByRole('button', { name: 'Hapus foto' })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: 'Hapus Foto' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Hapus 1' })).not.toBeInTheDocument();
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
@@ -483,11 +483,11 @@ describe('Data: unggah SHP & layer baru', () => {
     await open();
     await userEvent.click(screen.getByRole('button', { name: /Unggah Data/ }));
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByRole('button', { name: 'Periksa file' })).toBeDisabled();
-    await userEvent.upload(within(dialog).getByLabelText('File shapefile atau GeoJSON'), zip);
+    expect(within(dialog).getByRole('button', { name: 'Periksa File' })).toBeDisabled();
+    await userEvent.upload(within(dialog).getByLabelText('File Shapefile atau GeoJSON'), zip);
     expect(within(dialog).getByText('jalan.zip')).toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole('radio', { name: 'Ganti semua' }));
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Periksa file' }));
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Ganti Semua' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Periksa File' }));
     expect(await within(dialog).findByText('1.200')).toBeInTheDocument();
     expect(within(dialog).getByText(/Tidak ada file .prj/)).toBeInTheDocument();
     expect(within(dialog).getByText(/menghapus 3 fitur lama/)).toBeInTheDocument();
@@ -495,11 +495,11 @@ describe('Data: unggah SHP & layer baru', () => {
     // Pencocokan kolom: Nama_Ruas otomatis ke nama_ruas (contoh nilai dari fitur pertama yang terisi).
     expect(within(dialog).getByText('1 dari 3 kolom terpasang')).toBeInTheDocument();
     expect(within(dialog).getByText('Jl. Wates')).toBeInTheDocument();
-    await choose('Kolom berkas untuk Kondisi', 'KONDISI_X');
+    await choose('Kolom Berkas untuk Kondisi', 'KONDISI_X');
     expect(within(dialog).getByText('Kolom ini kosong di contoh')).toBeInTheDocument();
-    await choose('Kolom berkas untuk Nama Ruas', 'Tidak diisi');
+    await choose('Kolom Berkas untuk Nama Ruas', 'Tidak Diisi');
     expect(within(dialog).getByText(/Kolom wajib belum dipasangkan: Nama Ruas/)).toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole('button', { name: /Simpan 1.200 fitur/ }));
+    await userEvent.click(within(dialog).getByRole('button', { name: /Simpan 1.200 fitur/i }));
     await userEvent.click(within(await screen.findByRole('dialog', { name: 'Unggahan selesai' })).getByRole('button', { name: 'Oke' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(calls.filter((c) => c.url.includes('/upload')).map((c) => c.url)).toEqual([
@@ -517,16 +517,16 @@ describe('Data: unggah SHP & layer baru', () => {
     await open();
     await userEvent.click(screen.getByRole('button', { name: /Unggah Data/ }));
     const dialog = await screen.findByRole('dialog');
-    await userEvent.upload(within(dialog).getByLabelText('File shapefile atau GeoJSON'), zip);
-    await userEvent.click(within(dialog).getByRole('radio', { name: 'Ganti semua' }));
+    await userEvent.upload(within(dialog).getByLabelText('File Shapefile atau GeoJSON'), zip);
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Ganti Semua' }));
     await userEvent.click(within(dialog).getByRole('radio', { name: 'Tambahkan' }));
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Periksa file' }));
-    await within(dialog).findByText('Fitur valid');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Periksa File' }));
+    await within(dialog).findByText('Fitur Valid');
     expect(within(dialog).queryByText(/Tidak ada file .prj/)).not.toBeInTheDocument();
     expect(within(dialog).queryByTestId('geojson')).not.toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole('button', { name: /Simpan 2 fitur/ }));
+    await userEvent.click(within(dialog).getByRole('button', { name: /Simpan 2 fitur/i }));
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('2 fitur tidak valid');
-    fireEvent.change(within(dialog).getByLabelText('File shapefile atau GeoJSON'), { target: { files: [] } });
+    fireEvent.change(within(dialog).getByLabelText('File Shapefile atau GeoJSON'), { target: { files: [] } });
     expect(within(dialog).getByText('Seret file shapefile (.zip) atau GeoJSON ke sini')).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Batal' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
@@ -540,22 +540,25 @@ describe('Data: unggah SHP & layer baru', () => {
       'GET /layers/sekolah-dasar/features': page([]),
     });
     await open();
-    await userEvent.click(screen.getByRole('button', { name: 'Layer baru' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Layer' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Layer Baru' }));
     const dialog = await screen.findByRole('dialog');
-    await userEvent.type(within(dialog).getByLabelText('Nama layer'), 'Sekolah Dasar');
+    await userEvent.type(within(dialog).getByLabelText('Nama Layer'), 'Sekolah Dasar');
     expect(within(dialog).getByText('Slug: sekolah-dasar')).toBeInTheDocument();
-    await userEvent.type(within(dialog).getByLabelText('Atribut (opsional)'), 'nama | Nama');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Buat layer' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Tambah Field' }));
+    await userEvent.type(within(dialog).getByLabelText('Label 1'), 'Nama');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Buat Layer' }));
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('duplikat');
     expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ slug: 'sekolah-dasar', name: 'Sekolah Dasar', category: 'Data Pendukung', year: null, geomType: 'Point', style: { color: '#D97706' }, fields: [{ key: 'nama', label: 'Nama', type: 'text' }], sumber: null }); // #DE533C dipakai Kondisi Jalan: tidak ditawarkan
     fail = false;
     await userEvent.type(within(dialog).getByLabelText('Tahun'), '2026');
-    await userEvent.type(within(dialog).getByLabelText('Sumber data'), '  BPS Kulon Progo ');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Buat layer' }));
+    await userEvent.type(within(dialog).getByLabelText('Sumber Data'), '  BPS Kulon Progo ');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Buat Layer' }));
     await waitFor(() => expect(calls.filter((c) => c.method === 'POST').at(-1)?.body).toMatchObject({ year: 2026, sumber: 'BPS Kulon Progo' }));
     await waitFor(() => expect(window.location.pathname).toBe('/data/sekolah-dasar'));
     expect(calls.filter((c) => c.method === 'POST').at(-1)?.body).toMatchObject({ year: 2026 });
-    await userEvent.click(screen.getByRole('button', { name: 'Layer baru' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Layer' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Layer Baru' }));
     await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Batal' }));
   });
 });
@@ -579,9 +582,9 @@ describe('Data: tempat sampah (soft delete)', () => {
     expect(await screen.findByText('Jl. Lama')).toBeInTheDocument();
     expect(screen.getByText(/tidak tampil di peta, Ringkasan, maupun ekspor/)).toBeInTheDocument();
     // Pencarian dan filter kecamatan ikut ke tab Terhapus; tanpa hasil = pesan menyebut kata kuncinya.
-    await choose('Filter kecamatan', 'Wates');
+    await choose('Filter Kecamatan', 'Wates');
     await waitFor(() => expect(calls.some((c) => c.url.startsWith('/layers/jalan-kabupaten/features/trash') && c.url.includes('kecamatan=Wates'))).toBe(true));
-    await choose('Filter kecamatan', 'Semua kecamatan');
+    await choose('Filter Kecamatan', 'Semua Kecamatan');
     await userEvent.type(screen.getByRole('searchbox'), 'zzz');
     expect(await screen.findByText('Tidak ada fitur terhapus yang cocok dengan "zzz".')).toBeInTheDocument();
     // Urut kolom Fitur saat daftar kosong: tanpa atribut nama, jatuh ke id.
@@ -595,12 +598,12 @@ describe('Data: tempat sampah (soft delete)', () => {
     await userEvent.click(screen.getByRole('columnheader', { name: /^ID/ }));
     await userEvent.click(screen.getByRole('columnheader', { name: /^ID/ }));
     await waitFor(() => expect(calls.some((c) => c.url.includes('sort=id&order=desc'))).toBe(true));
-    await userEvent.click(screen.getByRole('columnheader', { name: /Dihapus oleh/ }));
+    await userEvent.click(screen.getByRole('columnheader', { name: /Dihapus oleh/i }));
     await waitFor(() => expect(calls.some((c) => c.url.includes('sort=deleted_by'))).toBe(true));
     expect(await screen.findByText('Jl. Lama')).toBeInTheDocument();
     // Penghapus yang akunnya sudah dihapus = "–".
     expect(within(screen.getAllByRole('row').find((r) => r.textContent?.includes('Jl. Yatim'))!).getByText('–')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Hapus permanen/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Hapus permanen/i })).toBeNull();
 
     await userEvent.click(screen.getByRole('button', { name: 'Pulihkan Jl. Lama' }));
     await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.url === '/features/9/restore')).toBe(true));
@@ -611,7 +614,7 @@ describe('Data: tempat sampah (soft delete)', () => {
 
     // Pilih semua -> bilah aksi -> pulihkan massal (berhasil, lalu gagal); batal mengosongkan pilihan.
     fail = false;
-    await userEvent.click(await screen.findByRole('checkbox', { name: 'Pilih semua' }));
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Pilih Semua' }));
     await userEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: 'Pulihkan 2' }));
     await waitFor(() => expect(calls.find((c) => c.url === '/layers/jalan-kabupaten/features/bulk-restore')?.body).toEqual({ ids: [9, 8] }));
     expect(await screen.findByText('2 fitur dipulihkan')).toBeInTheDocument();
@@ -622,7 +625,7 @@ describe('Data: tempat sampah (soft delete)', () => {
     await userEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: 'Batal' }));
     await waitFor(() => expect(screen.queryByRole('toolbar')).toBeNull());
 
-    await userEvent.click(screen.getByRole('button', { name: 'Halaman berikutnya' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Halaman Berikutnya' }));
     await waitFor(() => expect(calls.some((c) => c.url.startsWith('/layers/jalan-kabupaten/features/trash') && c.url.includes('page=2'))).toBe(true));
     await choose('Baris', '50');
     await waitFor(() => expect(calls.some((c) => c.url.startsWith('/layers/jalan-kabupaten/features/trash') && c.url.includes('limit=50'))).toBe(true));
@@ -639,12 +642,12 @@ describe('Data: tempat sampah (soft delete)', () => {
     });
     await open();
     await userEvent.click(screen.getByRole('radio', { name: 'Terhapus' }));
-    await userEvent.click(await screen.findByRole('button', { name: 'Hapus permanen Jl. Lama' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Hapus Permanen Jl. Lama' }));
     expect(await screen.findByRole('dialog', { name: 'Hapus permanen fitur ini?' })).toBeInTheDocument();
     await userEvent.click(await screen.findByRole('button', { name: 'Tidak' }));
     expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
-    await userEvent.click(screen.getByRole('button', { name: 'Hapus permanen Jl. Lama' }));
-    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Hapus permanen fitur ini?' })).getByRole('button', { name: 'Hapus permanen' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hapus Permanen Jl. Lama' }));
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Hapus permanen fitur ini?' })).getByRole('button', { name: 'Hapus Permanen' }));
     await waitFor(() => expect(calls.some((c) => c.method === 'DELETE' && c.url === '/features/9/purge')).toBe(true));
     expect(await screen.findByText('Fitur dihapus permanen')).toBeInTheDocument();
     expect(await screen.findByText('Belum ada fitur yang dihapus.')).toBeInTheDocument();
@@ -661,15 +664,15 @@ describe('Data: tempat sampah (soft delete)', () => {
     await userEvent.click(screen.getByRole('radio', { name: 'Terhapus' }));
     await userEvent.click(await screen.findByRole('checkbox', { name: /^Pilih 9/ }));
     const bar = await screen.findByRole('toolbar');
-    await userEvent.click(within(bar).getByRole('button', { name: /Hapus permanen 1/ }));
+    await userEvent.click(within(bar).getByRole('button', { name: /Hapus Permanen 1/i }));
     await userEvent.click(within(await screen.findByRole('dialog', { name: 'Hapus permanen 1 fitur?' })).getByRole('button', { name: 'Tidak' }));
     expect(calls.some((c) => c.url.includes('bulk-purge'))).toBe(false);
-    await userEvent.click(within(bar).getByRole('button', { name: /Hapus permanen 1/ }));
-    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Hapus permanen 1 fitur?' })).getByRole('button', { name: 'Hapus permanen' }));
+    await userEvent.click(within(bar).getByRole('button', { name: /Hapus Permanen 1/i }));
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Hapus permanen 1 fitur?' })).getByRole('button', { name: 'Hapus Permanen' }));
     expect(await screen.findByText('Gagal hapus')).toBeInTheDocument();
     fail = false;
-    await userEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: /Hapus permanen 1/ }));
-    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Hapus permanen 1 fitur?' })).getByRole('button', { name: 'Hapus permanen' }));
+    await userEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: /Hapus Permanen 1/i }));
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Hapus permanen 1 fitur?' })).getByRole('button', { name: 'Hapus Permanen' }));
     expect(await screen.findByText('1 fitur dihapus permanen')).toBeInTheDocument();
     expect(calls.filter((c) => c.url === '/layers/jalan-kabupaten/features/bulk-purge').at(-1)?.body).toEqual({ ids: [9] });
   });
@@ -682,7 +685,7 @@ describe('Data: tempat sampah (soft delete)', () => {
       'GET /layers/batas-administrasi/features': page([{ id: '6', properties: { kecamatan: 'Wates' }, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z' }]),
     });
     renderAt('/data/penggunaan-lahan');
-    expect(await screen.findByRole('button', { name: 'Keputusan fitur 5' }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Keputusan Fitur 5' }, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Keputusan' })).toBeInTheDocument();
   });
 
@@ -690,7 +693,7 @@ describe('Data: tempat sampah (soft delete)', () => {
     mockApi({ ...base(), 'GET /layers/batas-administrasi/features': page([{ id: '6', properties: { kecamatan: 'Wates' }, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z' }]) });
     renderAt('/data/batas-administrasi');
     expect(await screen.findByText('Wates', {}, { timeout: 5000 })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Keputusan fitur/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Keputusan fitur/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Keputusan' })).not.toBeInTheDocument();
   });
 });

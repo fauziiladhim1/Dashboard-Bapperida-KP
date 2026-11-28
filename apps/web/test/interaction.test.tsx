@@ -23,7 +23,7 @@ describe('interaksi Ringkasan', () => {
   it('kondisi jalan: sorot & sembunyikan kelas; peta mini tanpa chip', async () => {
     mockApi({ 'GET /auth/me': { user: user('viewer') }, 'GET /layers': LAYERS, ...STATS });
     renderAt('/');
-    await screen.findByText('Jalan kabupaten rusak berat', {}, { timeout: 12000 }); // muat pertama: chunk Ringkasan di-transform
+    await screen.findByText('Jalan Kabupaten Rusak Berat', {}, { timeout: 12000 }); // muat pertama: chunk Ringkasan di-transform
 
     // Sorot kelas lewat batang atau daftar kelas: kelas lain diredupkan.
     const berat = await screen.findByRole('button', { name: /^Rusak Berat/ });
@@ -52,14 +52,14 @@ describe('interaksi lain', () => {
     mapState.theme = 'dark';
     mockApi({ 'GET /auth/me': { user: user() }, 'GET /layers': LAYERS, 'GET /stats/kecamatan': [] });
     renderAt('/peta');
-    await screen.findByText('Layer peta', {}, { timeout: 5000 });
+    await screen.findByText('Layer Peta', {}, { timeout: 5000 });
     await waitFor(() => expect(fakeMap.addLayer.mock.calls.some(([l]) => l.id === 'line-batas-administrasi' && l.paint['line-color'] === '#E5E7EB')).toBe(true));
 
-    await userEvent.click(screen.getByRole('button', { name: 'Ciutkan panel layer' }));
-    const fab = await screen.findByRole('button', { name: 'Buka panel layer' });
+    await userEvent.click(screen.getByRole('button', { name: 'Ciutkan Panel Layer' }));
+    const fab = await screen.findByRole('button', { name: 'Buka Panel Layer' });
     expect(fab.parentElement).toHaveTextContent('2');
     await userEvent.click(fab);
-    expect(await screen.findByRole('button', { name: 'Ciutkan panel layer' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Ciutkan Panel Layer' })).toBeInTheDocument();
   });
 
   it('pilihan baris bisa dibatalkan dari action bar; seret file ke dropzone', async () => {
@@ -70,7 +70,7 @@ describe('interaksi lain', () => {
     });
     renderAt('/data');
     await userEvent.click(await screen.findByRole('checkbox', { name: /^Pilih 1/ }, { timeout: 5000 }));
-    const bar = await screen.findByRole('toolbar', { name: 'Aksi fitur terpilih' });
+    const bar = await screen.findByRole('toolbar', { name: 'Aksi Fitur Terpilih' });
     await userEvent.click(within(bar).getByRole('button', { name: 'Batal' }));
     await waitFor(() => expect(screen.queryByRole('toolbar')).not.toBeInTheDocument());
 
@@ -78,7 +78,7 @@ describe('interaksi lain', () => {
     const dialog = await screen.findByRole('dialog');
     const zone = within(dialog).getByText('Seret file shapefile (.zip) atau GeoJSON ke sini').closest('label')!;
     fireEvent.dragOver(zone);
-    expect(within(dialog).getByText('Lepaskan file di sini')).toBeInTheDocument();
+    expect(within(dialog).getByText('Lepaskan File di Sini')).toBeInTheDocument();
     fireEvent.dragLeave(zone);
     fireEvent.drop(zone, { dataTransfer: { files: [new File(['PK'], 'jalan.zip')] } });
     expect(within(dialog).getByText('jalan.zip')).toBeInTheDocument();
@@ -88,7 +88,7 @@ describe('interaksi lain', () => {
   it('Log: filter rentang tanggal lewat kalender, breadcrumb kembali ke beranda', async () => {
     const calls = mockApi({ 'GET /auth/me': { user: user() }, 'GET /audit': page([]), 'GET /layers': LAYERS, 'GET /stats/kecamatan': [], 'GET /stats/ruas-jalan': [] });
     renderAt('/log');
-    const picker = await screen.findByRole('group', { name: 'Rentang tanggal' }, { timeout: 5000 });
+    const picker = await screen.findByRole('group', { name: 'Rentang Tanggal' }, { timeout: 5000 });
     await userEvent.click(within(picker).getByRole('button'));
     const grid = await screen.findByRole('grid');
     await userEvent.click(within(grid).getByText('10'));
@@ -107,7 +107,7 @@ describe('interaksi lain', () => {
       'POST /layers': ({ body }: { body: object }) => ({ ...LAYERS[6], ...body }),
     });
     renderAt('/data');
-    const search = await screen.findByRole('searchbox', { name: 'Cari atribut…' }, { timeout: 5000 });
+    const search = await screen.findByRole('searchbox', { name: 'Cari Atribut…' }, { timeout: 5000 });
     await userEvent.keyboard('/');
     expect(search).toHaveFocus();
     await userEvent.keyboard('/');
@@ -119,12 +119,14 @@ describe('interaksi lain', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(calls.some((c) => c.method === 'POST')).toBe(false);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Layer baru' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Layer' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Layer Baru' }));
     const dialog = await screen.findByRole('dialog');
-    await userEvent.type(within(dialog).getByLabelText('Nama layer'), 'Taman');
-    // Opsi ke-4: #DE533C (dipakai Kondisi Jalan) tidak ditawarkan, jadi biru kini di indeks 3.
-    await userEvent.click(within(dialog).getAllByRole('option')[3]!);
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Buat layer' }));
+    await userEvent.type(within(dialog).getByLabelText('Nama Layer'), 'Taman');
+    // #DE533C (dipakai Kondisi Jalan) tidak ditawarkan; biru dipilih dari swatch.
+    expect(within(dialog).queryByRole('radio', { name: '#DE533C' })).toBeNull();
+    await userEvent.click(within(dialog).getByRole('radio', { name: '#2563EB' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Buat Layer' }));
     await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({ style: { color: '#2563EB' } }));
   });
 });

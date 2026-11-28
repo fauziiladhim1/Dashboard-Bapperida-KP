@@ -17,9 +17,11 @@ import { endpoints } from '@/lib/api';
 import { fmt, fmtCompact, fmtLongDate, greetingKey, pct } from '@/lib/format';
 import { usePrefs } from '@/lib/prefs';
 import { cn } from '@/lib/utils';
+import { DICT, type Key } from '@/lib/i18n';
+import { fill, type Slot, type TextSlot } from '@/components/common/card-style';
 import { latestVersions, patchParams, useYear, useYearRange, yearGaps } from '@/lib/year-range';
 import { classLabel, colorOf } from '@/lib/layer-style';
-import type { CustomKpi, Layer, StatRow } from '@/lib/types';
+import type { CustomKpi, CustomKpiInput, Layer, LayoutCard, StatRow } from '@/lib/types';
 import { FilterChip } from '@/components/common/FilterChip';
 import { Breakdown, LEGEND_BOX, LEGEND_TITLE, MiniDonut, pickChart, haLabel, LandCover, HazardCard, incomparableYears, PolaRuang, HeroKpi, Kpi, MiniMap, RankBars, ROAD_PARTS, RoadOverview, Spark, sum, TimeSeries } from './widgets';
 import { ArrowRotateLeft, ArrowUturnCcwLeft, ArrowUturnCwRight, Check, Droplet, Pencil, Wrench } from '@gravity-ui/icons';
@@ -32,7 +34,7 @@ const Composition = (p: Parameters<typeof Breakdown>[0]) =>
 
 export default function OverviewPage() {
   const { data: me } = useMe();
-  const { t } = usePrefs();
+  const { t, lang } = usePrefs();
   const now = new Date();
   const [params, setParams] = useSearchParams();
   const kec = params.get('kec') ?? undefined;
@@ -56,7 +58,8 @@ export default function OverviewPage() {
   // Tata letak kartu (urutan, lebar, tersembunyi) dari DB; resep KPI kustom dari tabel `kpi`.
   const layout = useLayout();
   const kpis = useQuery({ queryKey: ['kpi'], queryFn: endpoints.kpis }).data ?? [];
-  const [kpiDialog, setKpiDialog] = useState<CustomKpi | 'new' | null>(null);
+  // `replaces`: kartu bawaan yang isinya diubah; disimpan sebagai KPI kustom di posisinya, kartu bawaan disembunyikan.
+  const [kpiDialog, setKpiDialog] = useState<{ kpi?: CustomKpi; template?: CustomKpiInput; replaces?: string } | null>(null);
   // Ctrl+Z / Ctrl+Y di mode edit = urungkan/ulangi tata letak (builder KPI punya riwayatnya sendiri saat terbuka).
   useUndoKeys(editing && !kpiDialog, layout.undo, layout.redo);
   // Tinggi kartu KPI sebaris (Kondisi jalan; satu baris grid = satu tinggi): jadi tinggi minimum kartu Tutupan lahan
@@ -150,13 +153,21 @@ export default function OverviewPage() {
   const pjuDelta = layerDelta('pju');
   const signedN = (n: number) => `${n > 0 ? '+' : ''}${fmt(n)}`;
 
+  // Baris angka kartu bisa diedit seperti teks Tableau: template dari tata letak (atau bawaan i18n), `{field}` = angka
+  // terkini. Field yang dipakai dicatat per kartu untuk ditawarkan di dialog Tampilan kartu.
+  const slots: Record<string, Partial<Record<Slot, TextSlot>>> = {};
+  const tx = (card: string, slot: Slot, key: Key, vars: TextSlot['vars'] = {}) => {
+    (slots[card] ??= {})[slot] = { def: DICT[lang][key], vars };
+    return fill(layout.cards.find((c) => c.key === card)?.[slot] || DICT[lang][key], vars);
+  };
+
   // Kartu Ringkasan; juga dipakai builder KPI untuk menyimpan lebar kartu (urutan tata letak lengkap).
   const entries: BoardEntry[] = [
     { key: 'hero', label: t('ov.poor'), span: 12, node: (
-      <HeroKpi caption={poorOdd.size ? `${t('ov.poorTrend')} (${t('ov.incomparableShort', { tahun: [...poorOdd].join(', ') })})` : t('ov.poorTrend')} icon={Persons}
+      <HeroKpi caption={poorOdd.size ? `${tx('hero', 'caption', 'ov.poorTrend')} (${t('ov.incomparableShort', { tahun: [...poorOdd].join(', ') })})` : tx('hero', 'caption', 'ov.poorTrend')} icon={Persons}
         extra={poorRank.length > 0 && (
           <div className={LEGEND_BOX}>
-            <p className={LEGEND_TITLE}>{t(kec ? 'ov.poorTopKal' : 'ov.poorTopKec', { tahun: poorLast!.tahun })}</p>
+            <p className={LEGEND_TITLE}>{tx('hero', 'legend', kec ? 'ov.poorTopKal' : 'ov.poorTopKec', { tahun: poorLast!.tahun })}</p>
             {/* Batang relatif wilayah terbanyak; angka = jiwa, porsi dari total muncul saat diarahkan. */}
             <RankBars items={poorRank} format={fmt} highlight={poorRank[0]!.key}
               detail={(i) => t('ov.poorShare', { pct: pct(i.value, whereTotal) })} />
@@ -164,8 +175,8 @@ export default function OverviewPage() {
         )}
         label={t('ov.poor')} value={poorLast?.miskin ?? null} format={(n) => t('ov.people', { n: fmt(n) })}
         loading={series.isPending} extraLoading={poorWhere.loading}
-        delta={poorDelta !== null ? { text: t('ov.kpiPoorDelta', { delta: `${poorDelta > 0 ? '+' : ''}${fmt(poorDelta)}`, pct: `${poorDelta > 0 ? '+' : ''}${pct(poorDelta, poorFirst!.miskin)}%`, tahun: poorFirst!.tahun }), up: poorDelta > 0, bad: poorDelta > 0 } : undefined}
-        sub={poorDelta === null ? t('ov.kpiPoorSub') : undefined} to={peta('penduduk-miskin')}>
+        delta={poorDelta !== null ? { text: tx('hero', 'delta', 'ov.kpiPoorDelta', { delta: `${poorDelta > 0 ? '+' : ''}${fmt(poorDelta)}`, pct: `${poorDelta > 0 ? '+' : ''}${pct(poorDelta, poorFirst!.miskin)}%`, tahun: poorFirst!.tahun }), up: poorDelta > 0, bad: poorDelta > 0 } : undefined}
+        sub={poorDelta === null ? tx('hero', 'sub', 'ov.kpiPoorSub') : undefined} to={peta('penduduk-miskin')}>
         <Spark points={poor.map((p) => ({ label: `${p.tahun}${poorOdd.has(p.tahun) ? '*' : ''}`, value: p.miskin }))} className="min-h-28 flex-1" labels={fmtCompact} />
         {poorLast && tahun !== undefined && poorLast.tahun !== tahun && <YearNote tahun={tahun} year={poorLast.tahun} />}
       </HeroKpi>
@@ -174,9 +185,9 @@ export default function OverviewPage() {
       <div ref={kpiRow} className="h-full">
       {/* Nilai dalam per-10 km: AnimatedNumber membulatkan ke bilangan bulat, desimal km dikembalikan di format. */}
       <Kpi tone="bad" icon={TriangleExclamation} label={t('ov.kpiRoad')} value={mantap && Math.round(mantap.rusakBerat * 10)} format={(n) => t('ov.kmBad', { km: fmt(n / 10) })}
-          loading={allLayers.isPending || jalanQ.loading || ruas.isLoading} to={peta('jalan-kabupaten')}
-          sub={mantap && jalan ? t('ov.kpiRoadSub', { pct: fmt(Math.round(mantap.pct)), surveyKm: fmt(Math.round(mantap.total)), n: fmt(roadSurveyed), total: fmt(sum(jalan, 'count')), tahun: ruasYear }) : undefined}
-          delta={roadDiff ? { text: t('ov.kpiYoY', { delta: `${signedN(roadDiff)} km`, tahun: prevSurvey }), up: roadDiff > 0, bad: roadDiff > 0 } : undefined}>
+          loading={allLayers.isPending || jalanQ.loading || ruas.isLoading} to={peta('jalan-kabupaten')} foot={false}
+          sub={mantap && jalan ? tx('road', 'sub', 'ov.kpiRoadSub', { pct: fmt(Math.round(mantap.pct)), surveyKm: fmt(Math.round(mantap.total)), n: fmt(roadSurveyed), total: fmt(sum(jalan, 'count')), tahun: ruasYear }) : undefined}
+          delta={roadDiff ? { text: tx('road', 'delta', 'ov.kpiYoY', { delta: `${signedN(roadDiff)} km`, tahun: prevSurvey }), up: roadDiff > 0, bad: roadDiff > 0 } : undefined}>
           {/* Rincian per kelas (termasuk belum disurvei, porsi dari seluruh ruas SK); klik kelas = saring peta mini. */}
           <RoadOverview network={jalan} layer={bySlug('jalan-kabupaten')} unmatched={unmatched} hiddenKelas={roadHidden} onHiddenKelas={setRoadHidden} />
         </Kpi>
@@ -185,23 +196,23 @@ export default function OverviewPage() {
     { key: 'pju', label: t('ov.kpiPju'), span: 4, node: (
       <Kpi icon={Bulb} label={t('ov.kpiPju')} value={pju ? sum(pju, 'count') : null} format={(n) => t('ov.points', { n: fmt(n) })}
           loading={allLayers.isPending || pjuQ.loading} to={peta('pju')}
-          delta={pjuDelta && { text: t('ov.kpiYoY', { delta: signedN(pjuDelta.d), tahun: pjuDelta.tahun }), up: pjuDelta.d > 0, bad: pjuDelta.d < 0 }}
+          delta={pjuDelta && { text: tx('pju', 'delta', 'ov.kpiYoY', { delta: signedN(pjuDelta.d), tahun: pjuDelta.tahun }), up: pjuDelta.d > 0, bad: pjuDelta.d < 0 }}
           // Baris keterangan diisi (setara "6 jenis fasilitas" di Utilitas), bukan baris kosong di bawah angka.
-          sub={pju ? t('ov.kpiPjuSub', { n: fmt(pju.filter((r) => r.key && r.count > 0).length) }) : undefined}>
+          sub={pju ? tx('pju', 'sub', 'ov.kpiPjuSub', { n: fmt(pju.filter((r) => r.key && r.count > 0).length) }) : undefined}>
           <Composition items={top(pju, bySlug('pju'))} total={sum(pju, 'count')} />
         </Kpi>
     ) },
     { key: 'util', label: t('ov.kpiSpm'), span: 4, node: (
       <Kpi icon={Wrench} label={t('ov.kpiSpm')} value={util ? sum(util, 'count') : null}
           format={(n) => t('ov.facilities', { n: fmt(n) })} loading={allLayers.isPending || utilQ.loading} to={peta('utilitas-umum')}
-          sub={util ? t('ov.kpiUtilSub', { n: fmt(util.filter((r) => r.key && r.count > 0).length) }) : undefined}>
+          sub={util ? tx('util', 'sub', 'ov.kpiUtilSub', { n: fmt(util.filter((r) => r.key && r.count > 0).length) }) : undefined}>
           <Composition items={top(util, bySlug('utilitas-umum'), true)} total={sum(util, 'count')} />
         </Kpi>
     ) },
     // KPI kustom (resep dari dashboard, tanpa kode).
     ...kpis.map((k): BoardEntry => ({ key: `kpi:${k.id}`, label: k.label, span: 4,
       node: <KpiTile k={k} all={all} layers={layers} kecamatan={kec} tahun={tahun} to={peta} />,
-      actions: <KpiActions k={k} onEdit={() => setKpiDialog(k)} /> })),
+      actions: <KpiActions k={k} />, onRecipe: () => setKpiDialog({ kpi: k }) })),
     { key: 'tutupan', label: t('ov.kpiSawah'), span: 12, node: (
       // `min-height` (bukan `height`): isi yang lebih tinggi (mis. ponsel) tetap memanjangkan kartu.
       <div className="flex h-full flex-col [&>*]:flex-1" style={{ minHeight: kpiH || undefined }}>
@@ -230,6 +241,56 @@ export default function OverviewPage() {
     // Pola ruang selebar penuh (treemap butuh lebar).
     { key: 'pola', label: t('ov.pola'), span: 12, node: <PolaRuang rows={polaQ.data ?? []} layer={bySlug('penggunaan-lahan')} loading={allLayers.isPending || polaQ.loading} retry={polaQ.retry} /> },
   ];
+
+  // Kartu bawaan yang setara satu resep KPI (jumlah/luas per kelas): pensil membuka builder dengan resep itu.
+  const recipe = (slug: string, label: string, p: Partial<CustomKpiInput>): CustomKpiInput => ({
+    label, layerSlug: slug, measure: 'count', sumField: null, byField: bySlug(slug)?.style.classField ?? null, by2Field: null, chart2: 'line', whereField: null, whereEq: null,
+    unit: null, warn: false, chart: 'auto', sort: 'desc', topN: null, ...p,
+  });
+  const templates: Record<string, CustomKpiInput> = {
+    pju: recipe('pju', t('ov.kpiPju'), { unit: t('ov.points', { n: '' }).trim() }),
+    util: recipe('utilitas-umum', t('ov.kpiSpm'), { byField: 'jenis', unit: t('ov.facilities', { n: '' }).trim() }),
+    // Tabel kelas terluas (10 teratas + Lainnya + Total), paling dekat dengan tabel kelompok kartu bawaannya.
+    tutupan: recipe('tutupan-lahan', t('ov.kpiSawah'), { measure: 'area_ha', byField: 'kelas', chart: 'table', topN: 10 }),
+    // Kartu berperhitungan khusus: resep terdekat dari atribut layer (angkanya bisa berbeda, lihat catatan di builder).
+    // Format dua grafik seperti kartu aslinya: wilayah terbanyak di tahun global (batang) + deret per tahun (garis).
+    hero: recipe('penduduk-miskin', t('ov.poor'), { measure: 'sum', sumField: 'jumlah', byField: kec ? 'kalurahan' : 'kecamatan', chart: 'bar', topN: 5, by2Field: 'tahun', chart2: 'line', unit: t('ov.people', { n: '' }).trim(), warn: true }),
+    road: recipe('jalan-kabupaten', t('ov.kpiRoad'), { measure: 'sum', sumField: 'panjang_km', byField: 'kondisi', unit: 'km', warn: true }),
+    hazard: recipe('potensi-bencana', t('ov.hazard'), { measure: 'area_ha', byField: 'jenis_bahaya', whereField: 'kelas', whereEq: 'Tinggi', chart: 'bar', warn: true }),
+    // Treemap seperti kartu Pola Ruang bawaannya.
+    pola: recipe('penggunaan-lahan', t('ov.pola'), { measure: 'area_ha', byField: 'pola_ruang', chart: 'treemap' }),
+  };
+  // Judul legenda KPI kustom bisa diganti dari Tampilan kartu; field `{by}` = nama rincian.
+  for (const k of kpis) if (k.byField) slots[`kpi:${k.id}`] = { legend: {
+    def: DICT[lang][k.sort === 'asc' ? 'kpi.bottom' : k.sort === 'label' ? 'kpi.per' : 'kpi.top'],
+    vars: { by: all.find((l) => l.slug === k.layerSlug)?.fields.find((f) => f.key === k.byField)?.label ?? k.byField } } };
+  // Kartu bahaya menghitung barisnya sendiri (jenis terpilih); field contoh = jenis dengan luas terbesar.
+  const topHazard = [...(bahayaQ.data ?? [])].sort((a, b) => b.areaHa - a.areaHa)[0];
+  slots.hazard = { sub: { def: DICT[lang]['ov.hazardKpiSub'], vars: {
+    jenis: topHazard?.key ? classLabel(bySlug('potensi-bencana')!.style, topHazard.key) : '…',
+    pct: topHazard ? `${pct(topHazard.areaHa, sum(batasQ.data, 'areaHa'))}%` : '…' } } };
+  const cardsNow = arrange(layout.cards, entries);
+  for (const e of entries) {
+    e.texts = slots[e.key];
+    const tpl = templates[e.key];
+    // Kartu bawaan yang sudah diganti KPI kustom (tersembunyi) tidak ditawarkan lagi, agar tak terbentuk salinan kedua.
+    if (tpl && on(tpl.layerSlug) && !cardsNow.find((c) => c.key === e.key)?.hidden) e.onRecipe = () => setKpiDialog({ template: tpl, replaces: e.key });
+  }
+  const dialogKey = kpiDialog?.kpi ? `kpi:${kpiDialog.kpi.id}` : kpiDialog?.replaces;
+  const dialogSpan = cardsNow.find((c) => c.key === dialogKey)?.span ?? 4;
+  /** Lebar dari builder = lebar kartu di grid. Pengganti kartu bawaan menempati posisinya; KPI baru lainnya setelah KPI kustom terakhir. */
+  const dialogCard = cardsNow.find((c) => c.key === dialogKey);
+  const dialogArrange = dialogCard?.arrange;
+  /** Ukuran & penempatan dari builder = tata letak kartu. Pengganti kartu bawaan menempati posisinya. */
+  const saveKpiCard = (id: number, span: BoardEntry['span'], arrange: NonNullable<LayoutCard['arrange']>) => {
+    const key = `kpi:${id}`;
+    const a = arrange === 'auto' ? undefined : arrange;
+    const at = cardsNow.findIndex((c) => c.key === kpiDialog?.replaces);
+    // Gaya kartu bawaan (judul, ikon, warna, catatan, keterangan) ikut pindah ke KPI penggantinya.
+    if (at >= 0) return layout.save(cardsNow.toSpliced(at, 1, { ...cardsNow[at]!, key, span, hidden: false, arrange: a }, { ...cardsNow[at]!, hidden: true }));
+    if (span === dialogSpan && a === dialogArrange) return;
+    layout.save(withSpan(cardsNow, key, span).map((c) => (c.key === key ? { ...c, arrange: a } : c)));
+  };
 
   return (
     <>
@@ -282,7 +343,7 @@ export default function OverviewPage() {
         ulang, mengubah lebar, dan menyembunyikan kartu ("Edit ringkasan"); tata letaknya tersimpan di DB (ringkasan_layout).
       */}
       {editing && (
-        <div className="-mt-2 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-accent/40 bg-accent/5 px-6 py-3 text-sm">
+        <div className="-mt-2 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-accent/40 px-6 py-3 text-sm">
           <p className="min-w-0 flex-1 basis-64 text-muted">{t('lay.hint')}</p>
           <div className="flex items-center gap-1">
             <Tip label={t('lay.undo')}>
@@ -298,11 +359,9 @@ export default function OverviewPage() {
           </div>
         </div>
       )}
-      <Board editing={editing} cards={layout.cards} onChange={layout.save} tail={<AddKpiTile onPress={() => setKpiDialog('new')} />} entries={entries} />
-      {kpiDialog && <KpiDialog kpi={kpiDialog === 'new' ? undefined : kpiDialog} all={all} layers={layers} kecamatan={kec} tahun={tahun} onClose={() => setKpiDialog(null)}
-        span={kpiDialog === 'new' ? 4 : arrange(layout.cards, entries).find((c) => c.key === `kpi:${kpiDialog.id}`)!.span}
-        // Lebar dari builder = lebar kartu di grid. KPI baru (belum di `entries`) ditaruh setelah KPI kustom terakhir, posisi bawaannya.
-        onSpan={(id, span) => layout.save(withSpan(arrange(layout.cards, entries), `kpi:${id}`, span))} />}
+      <Board editing={editing} cards={layout.cards} onChange={layout.save} tail={<AddKpiTile onPress={() => setKpiDialog({})} />} entries={entries} />
+      {kpiDialog && <KpiDialog kpi={kpiDialog.kpi} template={kpiDialog.template} note={kpiDialog.replaces ? t('kpi.templateNote') : undefined} all={all} layers={layers} kecamatan={kec} tahun={tahun} onClose={() => setKpiDialog(null)}
+        span={dialogSpan} arrange={dialogArrange} look={dialogCard} onSaved={saveKpiCard} />}
     </>
   );
 }

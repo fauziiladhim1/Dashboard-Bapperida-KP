@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, ArrowUpRight, LayoutCellsLarge, TriangleExclamation } from '@gravity-ui/icons';
+import { CardFoot, CardNote, fill, IconChip, useCardStyle } from '@/components/common/card-style';
 import { Card, ListBox, Select } from '@heroui/react';
 import type { ComponentType, ReactNode, SVGProps } from 'react';
 import { m } from 'motion/react';
@@ -61,13 +62,15 @@ type KpiProps = {
   wide?: boolean;
   /** Tanpa angka utama di kartu: grafik di `children` sudah memuatnya (mis. total di tengah donut). */
   bare?: boolean;
+  /** Keterangan bawah bawaan; `false` = isi kartu sudah memasang `CardFoot` sendiri (mis. Kondisi jalan). */
+  foot?: ReactNode | false;
 };
 
 /**
  * Angka utama KPI + baris pembanding/keterangan. Kartu biasa 34px tanpa margin atas (jarak dari header diatur `gap`
  * kartu); `big` = ukuran kartu hero (penduduk miskin), dengan margin atas sendiri.
  */
-export function KpiFigure({ value, format, sub, delta, loading, tone, big }: Omit<KpiProps, 'icon' | 'label' | 'children' | 'to' | 'wide' | 'bare'> & { big?: boolean }) {
+export function KpiFigure({ value, format, sub, delta, loading, tone, big }: Omit<KpiProps, 'icon' | 'label' | 'children' | 'to' | 'wide' | 'bare' | 'foot'> & { big?: boolean }) {
   const { t } = usePrefs();
   const Arrow = delta?.up ? ArrowUp : ArrowDown;
   const SIZE = big ? 'mt-2 text-[44px] sm:text-[56px]' : 'text-[34px]';
@@ -115,16 +118,19 @@ function KpiLabel({ label, to, className }: { label: string; to?: string; classN
   );
 }
 
-const IconChip = ({ icon: Icon }: { icon: KpiProps['icon'] }) => (
-  <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-accent/10 text-accent">
-    <Icon className="size-4" />
-  </span>
-);
-
-/** Header kartu Ringkasan: chip ikon + judul, setinggi chip (36px). Sama dengan header `Panel`. */
-const KpiHead = ({ icon, label, to }: Pick<KpiProps, 'icon' | 'label' | 'to'>) => (
-  <div className="flex min-h-9 items-center gap-3"><IconChip icon={icon} /><KpiLabel label={label} to={to} /></div>
-);
+/**
+ * Header kartu Ringkasan: chip ikon + judul, setinggi chip (36px). Sama dengan header `Panel`. Judul, ikon, dan catatan
+ * pengganti dari "Edit ringkasan" (CardStyle) menimpa bawaan.
+ */
+function KpiHead({ icon, label, to }: Pick<KpiProps, 'icon' | 'label' | 'to'>) {
+  const { title } = useCardStyle();
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex min-h-9 items-center gap-3"><IconChip icon={icon} /><KpiLabel label={title || label} to={to} /></div>
+      <CardNote />
+    </div>
+  );
+}
 
 /**
  * Kartu KPI bento. Pola semua kartu Ringkasan: padding `.card-pad` (20px ponsel, 24px ≥640px; juga `Panel`, hero & tile KPI baru), jarak antarblok 16px; header (chip + judul), angka utama,
@@ -132,40 +138,57 @@ const KpiHead = ({ icon, label, to }: Pick<KpiProps, 'icon' | 'label' | 'to'>) =
  * bertumpuk, kartu ⅔/penuh = angka di kolom kiri, rincian memakai sisa lebar. Jadi isi tetap pas saat lebar kartu
  * diubah di "Edit ringkasan".
  */
-export function Kpi({ icon, label, children, to, wide, bare, ...figure }: KpiProps) {
+export function Kpi({ icon, label, children, to, wide, bare, foot, ...figure }: KpiProps) {
   const showChildren = !figure.loading && figure.value !== null && children;
+  // Penempatan isi dari "Edit ringkasan": berdampingan (mulai kartu ±448px), bertumpuk, atau grafik di atas angka.
+  const { arrange = 'auto' } = useCardStyle();
+  const body = {
+    auto: cn('flex-col', !wide && '@2xl:flex-row @2xl:items-start @2xl:gap-8'),
+    side: '@md:flex-row @md:items-start @md:gap-8 flex-col',
+    stack: 'flex-col',
+    chartFirst: 'flex-col-reverse',
+  }[arrange];
+  const fig = { auto: '@2xl:w-56 @2xl:shrink-0', side: '@md:w-56 @md:shrink-0', stack: '', chartFirst: '' }[arrange];
   return (
     <Card className="card-pad @container h-full gap-4">
       <KpiHead icon={icon} label={label} to={to} />
-      <div className={cn('flex flex-1 flex-col gap-4', !wide && '@2xl:flex-row @2xl:items-start @2xl:gap-8')}>
+      <div className={cn('flex flex-1 gap-4', body)}>
         {bare && figure.loading ? <span aria-busy className="skeleton block h-56 w-full rounded-xl" />
           // `bare`: angka utama hanya bila tidak ada data, agar keterangan "belum ada data" tetap tampil.
-          : (!bare || figure.value === null) && <div className="@2xl:w-56 @2xl:shrink-0"><KpiFigure {...figure} /></div>}
+          : (!bare || figure.value === null) && <div className={fig}><KpiFigure {...figure} /></div>}
         {showChildren && <div className="flex min-w-0 flex-1 flex-col">{children}</div>}
       </div>
+      {foot !== false && <CardFoot className="mt-auto">{foot}</CardFoot>}
     </Card>
   );
 }
+
+/** Penempatan kartu hero: angka kiri + grafik kanan (bawaan), bertumpuk, atau grafik di atas. */
+const HERO_ARRANGE = {
+  auto: 'flex-col lg:flex-row lg:items-stretch', side: 'flex-col lg:flex-row lg:items-stretch', stack: 'flex-col', chartFirst: 'flex-col-reverse lg:flex-row-reverse lg:items-stretch',
+} as const;
 
 /**
  * Kartu hero bento (lebar penuh): kiri judul + KPI utama berukuran besar + rincian (`extra`, mis. semua kecamatan),
  * kanan grafik tertanam dengan keterangan kecil di kiri atas. `children` = isi panel grafik.
  */
-export function HeroKpi({ label, children, to, icon, caption, extra, extraLoading, ...figure }: KpiProps & { caption?: string;
+export function HeroKpi({ label, children, to, icon, caption, extra, extraLoading, foot, ...figure }: KpiProps & { caption?: string;
   /** Data rincian masih dimuat (terpisah dari angka utama): ruangnya tetap dipesan. */
   extraLoading?: boolean;
   /** Rincian di bawah angka utama (mis. penduduk miskin per kecamatan). */
   extra?: ReactNode }) {
+  const { arrange = 'auto' } = useCardStyle();
   return (
-    <Card className="relative h-full flex-col gap-0 overflow-hidden p-0 md:min-h-[260px] lg:flex-row lg:items-stretch">
+    <Card className={cn('relative h-full gap-0 overflow-hidden p-0 md:min-h-[260px]', HERO_ARRANGE[arrange])}>
       {/* Padding sama dengan kartu lain (.card-pad): ikon hero sejajar dengan ikon kartu di bawahnya. */}
       <div className="card-pad flex flex-1 flex-col justify-center">
-        <div className="flex items-center gap-3"><IconChip icon={icon} /><KpiLabel label={label} to={to} /></div>
+        <KpiHead icon={icon} label={label} to={to} />
         <KpiFigure {...figure} big />
         {/* Selama memuat, ruang rincian (±164px, 5 baris peringkat) sudah dipesan: kartu tidak memanjang saat data
             tiba, jadi grafik di sebelah/bawahnya tidak bergeser (CLS 0,136 -> layout stabil). */}
         {figure.loading || extraLoading ? <span aria-busy className="skeleton mt-8 block h-[164px] rounded-xl lg:max-w-md" />
           : extra && figure.value !== null && <div className="mt-8 lg:max-w-md">{extra}</div>}
+        {foot !== false && <CardFoot className="mt-6 lg:max-w-md">{foot}</CardFoot>}
       </div>
       {children && (
         // Grafik langsung di kartu (tanpa bingkai/latar sendiri), keterangan kecil di kiri atas. Blok grafik pertama
@@ -322,7 +345,9 @@ export function LandCover({ rows, layer, total }: { rows: StatRow[]; layer?: Lay
       }
       acc.set(g, e);
     }
-    return [...acc.values()].sort((a, b) => b.value - a.value).map((g) => ({ ...g, members: g.members.sort((a, b) => b.value - a.value) }));
+    // Kelompok nyata diurut luas; "Lainnya" & "Tanpa Kelas" (sisa) selalu di bawah, tidak menyela peringkat.
+    const rest = (g: LandGroup) => (g.key === t('ov.noClass') ? 2 : g.key === t('ov.other') ? 1 : 0);
+    return [...acc.values()].sort((a, b) => rest(a) - rest(b) || b.value - a.value).map((g) => ({ ...g, members: g.members.sort((a, b) => b.value - a.value) }));
   }, [rows, style, t]);
   if (!groups.length || total <= 0) return null;
   const dim = (k: string) => hot !== null && hot !== k && 'opacity-35';
@@ -349,12 +374,12 @@ export function LandCover({ rows, layer, total }: { rows: StatRow[]; layer?: Lay
             return seg;
           })}
         </svg>
-        <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
+        <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-10 text-center">
           <span className="font-heading text-[28px] leading-none font-medium tracking-[-0.03em] text-heading tabular-nums">
             {cur ? pctLabel(cur.value, total) : haLabel(Math.round(total))}
           </span>
           <span className="mt-2 text-xs leading-tight text-muted">
-            {cur ? `${cur.label}, ${haLabel(Math.round(cur.value))}` : t('ov.kpiLandSub', { n: fmt(kelas), g: fmt(groups.filter((g) => g.members.length).length) })}
+            {cur ? `${cur.label}, ${haLabel(Math.round(cur.value))}` : t('ov.landTotal')}
           </span>
         </span>
       </div>
@@ -362,11 +387,11 @@ export function LandCover({ rows, layer, total }: { rows: StatRow[]; layer?: Lay
           sehingga mudah dibandingkan. Kartu sempit: kolom kelas penyusun disembunyikan. */}
       <table className="w-full min-w-0 flex-1 table-fixed border-collapse text-xs">
         <thead>
-          <tr className="text-left text-subtle">
-            <th scope="col" className="w-[38%] pb-2 font-normal @3xl:w-[26%]">{t('ov.lcGroup')}</th>
-            <th scope="col" className="pb-2 text-right font-normal">{t('ov.lcArea')}</th>
-            <th scope="col" className="w-14 pb-2 text-right font-normal">{t('ov.lcShare')}</th>
-            <th scope="col" className="hidden w-[44%] pb-2 pl-6 font-normal @3xl:table-cell">{t('ov.lcClasses')}</th>
+          <tr className="text-left text-muted">
+            <th scope="col" className="pb-2 font-medium @3xl:w-44">{t('ov.lcGroup')}</th>
+            <th scope="col" className="w-24 pb-2 text-right font-medium">{t('ov.lcArea')}</th>
+            <th scope="col" className="w-14 pb-2 text-right font-medium">{t('ov.lcShare')}</th>
+            <th scope="col" className="hidden pb-2 pl-6 font-medium @3xl:table-cell">{t('ov.lcClasses')}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-separator border-t border-separator">
@@ -375,12 +400,12 @@ export function LandCover({ rows, layer, total }: { rows: StatRow[]; layer?: Lay
               <th scope="row" className="py-2 pr-2 text-left font-normal">
                 <span className="flex min-w-0 items-center gap-2">
                   <span aria-hidden className={DOT} style={{ backgroundColor: g.color }} />
-                  <span className="truncate font-medium text-heading" title={g.label}>{g.label}</span>
+                  <span className="truncate text-heading" title={g.label}>{g.label}</span>
                 </span>
               </th>
-              <td className="py-2 text-right text-muted tabular-nums">{haLabel(Math.round(g.value))}</td>
-              <td className="py-2 text-right font-medium text-heading tabular-nums">{pctLabel(g.value, total)}</td>
-              <td className="hidden truncate py-2 pl-6 text-subtle @3xl:table-cell" title={g.members.map((x) => x.label).join(', ')}>
+              <td className="py-2 text-right text-heading tabular-nums">{haLabel(Math.round(g.value))}</td>
+              <td className="py-2 text-right text-muted tabular-nums">{pctLabel(g.value, total)}</td>
+              <td className="hidden truncate py-2 pl-6 text-muted @3xl:table-cell" title={g.members.map((x) => x.label).join(', ')}>
                 {g.members.length ? <>
                   {g.members.slice(0, 3).map((x) => `${x.label} ${pctLabel(x.value, total)}`).join(', ')}
                   {g.members.length > 3 && `, ${t('ov.moreClasses', { n: g.members.length - 3 })}`}
@@ -389,6 +414,15 @@ export function LandCover({ rows, layer, total }: { rows: StatRow[]; layer?: Lay
             </tr>
           ))}
         </tbody>
+        {/* Baris total: luas & porsi semua kelompok (100%), sumber angka di tengah donut. */}
+        <tfoot className="border-t border-separator">
+          <tr>
+            <th scope="row" className="pt-2 pr-2 text-left font-medium text-heading">{t('ov.lcTotal')}</th>
+            <td className="pt-2 text-right font-medium text-heading tabular-nums">{haLabel(Math.round(total))}</td>
+            <td className="pt-2 text-right text-muted tabular-nums">100%</td>
+            <td className="hidden pt-2 pl-6 text-muted @3xl:table-cell">{t('ov.kpiLandSub', { n: fmt(kelas), g: fmt(groups.filter((g) => g.members.length).length) })}</td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   );
@@ -534,7 +568,7 @@ function TrendTip({ active, label, payload, series, unitOf, prevOf, total }: Tip
     .sort((a, b) => b.v - a.v); // Recharts sudah membuang nilai null dari payload: rows tak pernah kosong di sini.
   return (
     <div className="min-w-40 rounded-xl border border-border bg-overlay px-2.5 py-1.5 text-xs shadow-card-hover">
-      <p className="mb-1 font-semibold text-foreground tabular-nums">{String(label)}</p>
+      <p className="mb-1 font-medium text-foreground tabular-nums">{String(label)}</p>
       <ul className="flex flex-col gap-0.5">
         {rows.map(({ s, v }) => (
           <li key={s.key} className="flex flex-col">
@@ -612,7 +646,7 @@ function AreaBars({ data, keys, years, odd, unitOf }: {
       )}
       {/* Tinggi mengikuti jumlah wilayah agar semua nama terbaca (12 kecamatan = ±400 px). */}
       <div style={{ height: names.length * 30 + 40 }}>
-        <ResponsiveContainer>
+        <ResponsiveContainer initialDimension={{ width: 1, height: 1 }}>
           <ComposedChart data={rows} layout="vertical" margin={{ top: 0, right: 16, left: 0, bottom: 0 }} barGap={1} barCategoryGap="22%">
             <CartesianGrid horizontal={false} stroke="var(--separator)" />
             <XAxis type="number" tickLine={false} axisLine={false} tick={tick} tickFormatter={(v: number) => fmtCompact(v)} />
@@ -787,7 +821,7 @@ export function TimeSeries({ points, loading, retry }: { points: TimePoint[]; lo
           <p className="mb-1 text-xs text-muted">{unitShort[cur.unit]}</p>
           <div className="h-56 lg:h-64">
             {/* Topik selalu punya minimal satu seri (kemiskinan selalu ada). */}
-            <ResponsiveContainer>
+            <ResponsiveContainer initialDimension={{ width: 1, height: 1 }}>
                 <ComposedChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }} onMouseLeave={() => setHot(null)} barGap={2} barCategoryGap="20%">
                   <defs>
                     {series.map((s) => (
@@ -888,6 +922,7 @@ export function RankBars({ items, format, highlight, detail, className, onSelect
  */
 export function HazardCard({ rows, totalHa, layer, loading, retry }: { rows: StatRow[]; totalHa: number; layer?: Layer; loading?: boolean; retry?: () => void }) {
   const { t } = usePrefs();
+  const style = useCardStyle();
   // Zona InaRISK (raster -> poligon per kelas): ukuran yang jujur = LUAS zona kelas Tinggi, bukan jumlah kalurahan
   // (satu piksel tinggi saja sudah membuat kalurahan terhitung). Porsi dari luas wilayah (kabupaten / kecamatan terpilih).
   // Batang = merah peringatan (`--danger`); semua jenis (maks. 8) agar kartu setinggi kartu Kondisi Jalan di sebelahnya.
@@ -902,22 +937,20 @@ export function HazardCard({ rows, totalHa, layer, loading, retry }: { rows: Sta
   const [sel, setSel] = useState<string | null>(null);
   const cur = items.find((i) => i.key === sel) ?? (multi ? { key: '', label: t('ov.multiHazard'), value: Math.round(multi.areaHa) } : top);
   return (
+    // Catatan kaki (petunjuk klik + sumber) di dasar kartu, sama dengan kartu Kondisi jalan; header tanpa subjudul.
+    // Angka dari zona hasil db:inarisk (salinan, bukan live): tanggal ambil ditampilkan agar umurnya jelas.
     <Panel icon={TriangleExclamation} title={t('ov.hazard')} className="h-full"
+      foot={top && !retry && !loading && layer?.sumber && (
+        <>{t('ov.hazardNote')} <span title={layer.sumber}>{t('map.source')} {layer.sumber}, {t('ov.takenOn', { date: fmtDate(layer.updatedAt) })}.</span></>
+      )}
       to={`/peta?layer=potensi-bencana${sel ? `&bahaya=${encodeURIComponent(sel)}` : ''}`}>
       {retry ? <Empty retry={retry} /> : loading ? <span aria-busy className="skeleton block h-40 rounded-xl" /> : !top || !cur ? <Empty /> : (
         <>
           <div aria-live="polite"><KpiFigure value={cur.value} format={haLabel} tone="bad"
-            sub={t('ov.hazardKpiSub', { jenis: cur.label, pct: pctLabel(cur.value, totalHa) })} /></div>
+            sub={fill(style.sub || t('ov.hazardKpiSub', { jenis: '{jenis}', pct: '{pct}' }), { jenis: cur.label, pct: pctLabel(cur.value, totalHa) })} /></div>
           <div className={LEGEND_BOX}><RankBars items={items} format={haLabel} highlight={sel ?? undefined} className="gap-1" onSelect={(k) => setSel(sel === k ? null : k)}
             detail={(i) => t('ov.hazardShare', { pct: pctLabel(i.value, totalHa) })} /></div>
         </>
-      )}
-      {/* Catatan kaki (petunjuk klik + sumber) di dasar kartu, sama dengan kartu Kondisi jalan; header tanpa subjudul. */}
-      {/* Angka dari zona hasil db:inarisk (salinan, bukan live): tanggal ambil ditampilkan agar umurnya jelas. */}
-      {top && !retry && !loading && layer?.sumber && (
-        <p className="mt-auto text-xs text-muted">
-          {t('ov.hazardNote')} <span title={layer.sumber}>{t('map.source')} {layer.sumber}, {t('ov.takenOn', { date: fmtDate(layer.updatedAt) })}.</span>
-        </p>
       )}
     </Panel>
   );
@@ -1094,9 +1127,7 @@ export function RoadOverview({ network = [], layer, unmatched = 0, hiddenKelas =
           </li>
         ))}
       </ul>
-      <p className="text-xs text-muted">
-        {t('ov.roadClassNote')}{unmatched > 0 && <> {t('ov.roadUnmatched', { n: fmt(unmatched) })}</>}
-      </p>
+      <CardFoot>{t('ov.roadClassNote')}{unmatched > 0 && <> {t('ov.roadUnmatched', { n: fmt(unmatched) })}</>}</CardFoot>
     </div>
   );
 }
@@ -1115,7 +1146,13 @@ export function useNearViewport(enabled = true) {
       if (entries.some((e) => e.isIntersecting)) { setNear(true); io.disconnect(); }
     }, { rootMargin: '300px' });
     io.observe(el);
-    return () => io.disconnect();
+    // Inisialisasi WebGL MapLibre ±50-100 ms; bila menunggu observer, jeda itu jatuh tepat saat pengguna menggulir
+    // (gulir pertama patah). Saat browser senggang (≥2 s setelah tampil) langsung pasang, jadi peta sudah siap.
+    const idle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 1));
+    const cancelIdle = window.cancelIdleCallback ?? window.clearTimeout;
+    let idleId = 0;
+    const timer = window.setTimeout(() => { idleId = idle(() => { setNear(true); io.disconnect(); }); }, 2000);
+    return () => { io.disconnect(); window.clearTimeout(timer); cancelIdle(idleId); };
   }, [el, near, enabled]);
   return [setEl, near] as const;
 }
@@ -1132,6 +1169,7 @@ export function MiniMap({ layers, kecamatan, gaps = [], tahun, hidden = NO_HIDDE
   const [hover, setHover] = useState<Hover | null>(null);
   const navigate = useNavigate();
   const [sentinel, near] = useNearViewport(!defer);
+  const style = useCardStyle();
   // Klik fitur di peta mini → buka di halaman Peta dengan popup fitur tersebut.
   const open = useCallback((f: MapGeoJSONFeature, l: Layer, p: { lng: number; lat: number }) => {
     if (f.id !== undefined) navigate(`/peta?f=${f.id}&layer=${l.slug}&lng=${p.lng}&lat=${p.lat}`);
@@ -1153,10 +1191,11 @@ export function MiniMap({ layers, kecamatan, gaps = [], tahun, hidden = NO_HIDDE
         <div className="pointer-events-auto rounded-2xl bg-surface/90 px-4 py-2.5 shadow-card backdrop-blur">
           <h2 className="card__title">
             <Link to="/peta" className="group/title inline-flex items-center gap-1.5 rounded-sm transition-colors hover:text-accent-text">
-              {t('ov.mapTitle')}{kecamatan ? `, ${kecamatan}` : ''}
+              {style.title || t('ov.mapTitle')}{kecamatan ? `, ${kecamatan}` : ''}
               <ArrowUpRight aria-hidden className="size-4 shrink-0 text-accent opacity-40 transition group-hover/title:translate-x-0.5 group-hover/title:-translate-y-0.5 group-hover/title:opacity-100 group-focus-visible/title:opacity-100" />
             </Link>
           </h2>
+          <CardNote className="mt-1 max-w-72" />
           {/* Seri layer bertahun yang kosong / memakai versi lama di tahun terpilih. */}
           {tahun !== undefined && gaps.map((g) => <YearNote key={g.name} tahun={tahun} year={g.year} name={g.name} className="mt-1 max-w-72" />)}
         </div>

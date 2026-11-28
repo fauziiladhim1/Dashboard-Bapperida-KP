@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDownToLine, ArrowUpFromLine, CircleCheck, Eye, Layers, Pencil, Plus, TrashBin } from '@gravity-ui/icons';
+import { activeFields } from '@/lib/layer-style';
+import { ArrowDownToLine, ArrowUpFromLine, ChevronDown, CircleCheck, Eye, Layers, ListUl, Pencil, Plus, TrashBin } from '@gravity-ui/icons';
 import { Button, Card, Checkbox, Chip, Dropdown, Header, Kbd, Label, ListBox, SearchField, Select, Table, type Selection, type SortDescriptor } from '@heroui/react';
 import { AnimatePresence, m } from 'motion/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -11,7 +12,7 @@ import { Pagination } from '@/components/common/Pagination';
 import { Tip } from '@/components/common/Tip';
 import { canEdit, useMe } from '@/hooks/use-auth';
 import { endpoints, refreshData } from '@/lib/api';
-import { sentenceCase } from '@/lib/utils';
+import { cn, sentenceCase } from '@/lib/utils';
 import { fmt, fmtDateTime } from '@/lib/format';
 import { confirmDanger, toast, toastError } from '@/lib/notify';
 import { useT } from '@/lib/prefs';
@@ -23,6 +24,8 @@ import { DecisionDialog } from './DecisionDialog';
 import { FeatureDialog } from './FeatureDialog';
 import { LayerDialog } from './LayerDialog';
 import { UploadDialog } from './UploadDialog';
+import { FieldsDialog } from './FieldsDialog';
+import { isNumeric, showValue } from '@/lib/field-types';
 import { RUAS_SLUG, RuasTable } from './RuasTable';
 import { TrashTable } from './TrashTable';
 
@@ -49,7 +52,7 @@ export default function DataPage() {
   const [sort, setSort] = useState<{ key: string; order: 'asc' | 'desc' } | null>(null);
   const kec = params.get('kec') ?? undefined;
   const [checked, setChecked] = useState<Set<number>>(new Set());
-  const [dialog, setDialog] = useState<null | 'upload' | 'layer'>(null);
+  const [dialog, setDialog] = useState<null | 'upload' | 'layer' | 'fields'>(null);
   // Aktif = data yang tampil di peta/Ringkasan; Terhapus = tempat sampah (soft delete) layer ini, hanya untuk editor.
   const [view, setView] = useState<'active' | 'trash'>('active');
 
@@ -104,7 +107,8 @@ export default function DataPage() {
   // Kolom keputusan hanya untuk layer yang datanya berubah & bisa ditindaklanjuti (needsDecision); dokumentasi foto hanya
   // layer berkondisi (`docs`). Data rujukan statis (batas administrasi, bahaya, ...) tanpa kolom ini.
   const decisionCol = !!layer && (docs || needsDecision(layer, urgencyRules));
-  const columns = layer ? (layer.fields.length ? layer.fields.slice(0, 4).map((f) => ({ key: f.key, label: f.label })) : Object.keys(list.data?.data[0]?.properties ?? {}).slice(0, 4).map((k) => ({ key: k, label: k }))) : [];
+  // Semua field aktif (seperti tabel atribut QGIS), tabel bergulir horizontal; layer tanpa skema: semua kunci baris pertama.
+  const columns = layer ? (activeFields(layer).length ? activeFields(layer).map((f) => ({ key: f.key, label: f.label, num: isNumeric(f.type) })) : Object.keys(list.data?.data[0]?.properties ?? {}).map((k) => ({ key: k, label: k, num: false }))) : [];
   const writable = editor && layer && !layer.sourceLayerId;
   // `?keputusan=<id>` (dari lonceng peringatan): buka notulensi & keputusan fitur itu, di halaman tabel mana pun ia berada.
   const decisionId = params.get('keputusan');
@@ -121,7 +125,8 @@ export default function DataPage() {
   };
   /** Kolom yang bisa diurutkan dari header; judul tidak dipatah agar tidak menumpuk/terpotong. */
   const sortable = (id: string, label: ReactNode, extra?: { isRowHeader?: boolean }) => (
-    <Table.Column key={id} id={id} allowsSorting className="whitespace-nowrap" {...extra}>
+    <Table.Column key={id} id={id} allowsSorting {...extra}
+      className="whitespace-nowrap">
       {({ sortDirection }) => <Table.SortableColumnHeader sortDirection={sortDirection}>{label}</Table.SortableColumnHeader>}
     </Table.Column>
   );
@@ -142,7 +147,7 @@ export default function DataPage() {
   const picker = (
     <Select aria-label={t('data.pickLayer')} selectedKey={slug} className="w-full sm:w-80"
       onSelectionChange={(s) => { setPage(1); setChecked(new Set()); navigate(`/data/${String(s)}${kec ? `?kec=${encodeURIComponent(kec)}` : ''}`); }}>
-      <Select.Trigger className="text-sm font-medium">
+      <Select.Trigger className="text-sm">
         <Select.Value />
         <Select.Indicator />
       </Select.Trigger>
@@ -178,7 +183,7 @@ export default function DataPage() {
               </>
             )}
             <Dropdown>
-              <Button variant="secondary"><ArrowDownToLine className="size-4" /> {t('data.export')}</Button>
+              <Button variant="secondary"><ArrowDownToLine className="size-4" /> {t('data.export')}<ChevronDown className="size-4 text-muted" aria-hidden /></Button>
               <Dropdown.Popover placement="bottom end">
                 <Dropdown.Menu aria-label={t('data.export')}>
                   <Dropdown.Item id="geojson" href={endpoints.exportUrl(slug, 'geojson', kec)} download textValue="GeoJSON"><Label>GeoJSON</Label></Dropdown.Item>
@@ -187,7 +192,19 @@ export default function DataPage() {
                 </Dropdown.Menu>
               </Dropdown.Popover>
             </Dropdown>
-            {editor && <Button variant="secondary" onPress={() => setDialog('layer')}><Layers className="size-4" /> {t('data.newLayer')}</Button>}
+            {/* Aksi tingkat layer (skema field & popup ala QGIS, layer baru) dikumpulkan di satu menu, terpisah dari aksi data. */}
+            {editor && (
+              <Dropdown>
+                <Button variant="secondary"><Layers className="size-4" /> {t('data.layerMenu')}<ChevronDown className="size-4 text-muted" aria-hidden /></Button>
+                <Dropdown.Popover placement="bottom end">
+                  <Dropdown.Menu aria-label={t('data.layerMenu')} onAction={(k) => setDialog(k as 'fields' | 'layer')}
+                    disabledKeys={layer ? [] : ['fields']}>
+                    <Dropdown.Item id="fields" textValue={t('fld.open')}><ListUl className="size-4 text-muted" /><Label>{t('fld.open')}</Label></Dropdown.Item>
+                    <Dropdown.Item id="layer" textValue={t('data.newLayer')}><Plus className="size-4 text-muted" /><Label>{t('data.newLayer')}</Label></Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown.Popover>
+              </Dropdown>
+            )}
           </div>
         </div>
         {layer && <LayerMeta layer={layer} />}
@@ -226,7 +243,12 @@ export default function DataPage() {
                   sortable('id', 'ID', { isRowHeader: true }),
                   ...columns.map((c) => sortable(c.key, c.label)),
                   // Kolom dokumentasi hanya untuk layer berkondisi (Kondisi Jalan, PJU, Utilitas); data statis tidak.
-                  ...(decisionCol ? [<Table.Column key="docs" className="whitespace-nowrap">{t(docs ? 'doc.title' : 'decision.label')}</Table.Column>] : []),
+                  // Urgensi | foto dokumentasi | keputusan: tiga kolom sendiri (rata tengah), bukan tiga isi berjejal di satu sel.
+                  ...(decisionCol ? [
+                    <Table.Column key="urg" className="whitespace-nowrap">{t('urg.label')}</Table.Column>,
+                    ...(docs ? [<Table.Column key="docs" className="whitespace-nowrap">{t('doc.title')}</Table.Column>] : []),
+                    <Table.Column key="decision" className="whitespace-nowrap">{t('decision.label')}</Table.Column>,
+                  ] : []),
                   sortable('tahun_data', t('data.tahunData')),
                   sortable('updated_at', t('data.updated')),
                   <Table.Column key="act" className="whitespace-nowrap">{t('data.actions')}</Table.Column>,
@@ -239,11 +261,16 @@ export default function DataPage() {
                   <Table.Row key={f.id} id={String(f.id)}>
                     {[
                       ...(writable ? [<Table.Cell key="sel"><Checkbox aria-label={t('data.select', { id: f.id })} slot="selection"><Checkbox.Content><Checkbox.Control><Checkbox.Indicator /></Checkbox.Control></Checkbox.Content></Checkbox></Table.Cell>] : []),
-                      <Table.Cell key="id" className="font-mono text-xs text-muted">{f.id}</Table.Cell>,
-                      ...columns.map((c) => <Table.Cell key={c.key} className="min-w-28 max-w-56 break-words">{String(f.properties[c.key] ?? '–')}</Table.Cell>),
-                      ...(decisionCol ? [<Table.Cell key="docs"><DocCell layer={layer!} f={f} writable={Boolean(writable)} onSaved={refresh} /></Table.Cell>] : []),
-                      <Table.Cell key="tahun_data" className="text-xs tabular-nums">{f.tahunData}</Table.Cell>,
-                      <Table.Cell key="updated_at" className="text-xs whitespace-nowrap text-muted">{fmtDateTime(f.updatedAt)}</Table.Cell>,
+                      <Table.Cell key="id" className="text-muted tabular-nums">{f.id}</Table.Cell>,
+                      // Satu baris per fitur, rata tengah seperti kolom lain: isi panjang dipotong (lengkapnya di tooltip).
+                      ...columns.map((c) => {
+                        const v = f.properties[c.key];
+                        const text = v == null || v === '' ? '–' : showValue(v);
+                        return <Table.Cell key={c.key} className={cn('max-w-60 truncate whitespace-nowrap', c.num && 'tabular-nums')}><span title={text}>{text}</span></Table.Cell>;
+                      }),
+                      ...(decisionCol ? docCells(layer!, f, Boolean(writable), refresh) : []),
+                      <Table.Cell key="tahun_data" className="tabular-nums">{f.tahunData}</Table.Cell>,
+                      <Table.Cell key="updated_at" className="whitespace-nowrap text-muted">{fmtDateTime(f.updatedAt)}</Table.Cell>,
                       <Table.Cell key="act" className="whitespace-nowrap">
                         <Tip label={writable ? t('common.edit') : t('common.view')}>
                           <Button isIconOnly size="sm" variant="ghost" onPress={() => setEdit(f.id)} aria-label={`${writable ? t('common.edit') : t('common.view')} ${f.id}`}>
@@ -296,18 +323,40 @@ export default function DataPage() {
           onClose={() => setParam('keputusan', null)} onSaved={refresh} />
       )}
       {layer && editId && <FeatureDialog layer={layer} featureId={editId === 'new' ? null : editId} readOnly={!writable} onClose={() => setEdit(null)} onSaved={refresh} />}
+      {layer && dialog === 'fields' && <FieldsDialog key={layer.id} layer={layer} onClose={() => setDialog(null)} />}
       {layer && dialog === 'upload' && <UploadDialog layer={layer} onClose={() => setDialog(null)} onSaved={refresh} />}
-      {dialog === 'layer' && <LayerDialog used={(layers.data ?? []).map((l) => l.style.color)} onClose={() => setDialog(null)} onSaved={(l) => { void refreshData(qc); navigate(`/data/${l.slug}`); }} />}
+      {dialog === 'layer' && <LayerDialog used={(layers.data ?? []).map((l) => l.style.color)} categories={(layers.data ?? []).map((l) => l.category)} onClose={() => setDialog(null)} onSaved={(l) => { void refreshData(qc); navigate(`/data/${l.slug}`); }} />}
     </div>
   );
 }
 
-/** Sel dokumentasi: badge urgensi dari kondisi + jumlah foto ("Belum ada" bila kosong pada fitur berurgensi). */
-function DocCell({ layer, f, writable, onSaved }: { layer: Layer; f: Feature; writable: boolean; onSaved: () => unknown }) {
-  const t = useT();
+/** Sel urgensi, foto dokumentasi (layer berkondisi), dan keputusan; urutannya sama dengan kolom header. */
+const docCells = (layer: Layer, f: Feature, writable: boolean, onSaved: () => unknown) => [
+  <Table.Cell key="urg"><UrgencyCell layer={layer} f={f} /></Table.Cell>,
+  ...(hasDocs(layer) ? [<Table.Cell key="docs"><PhotoCell layer={layer} f={f} /></Table.Cell>] : []),
+  <Table.Cell key="decision"><DecisionCell layer={layer} f={f} writable={writable} onSaved={onSaved} /></Table.Cell>,
+];
+
+/** Urgensi tanpa latar (warna teks + ikon); label "Urgensi" sudah di header, jadi hanya tingkatnya. */
+function UrgencyCell({ layer, f }: { layer: Layer; f: Feature }) {
   const settings = useSettings().data;
   const u = urgencyOf(layer, f.properties, settings?.urgensi);
+  return u ? <UrgencyBadge short value={u} className="text-sm" /> : <span className="text-muted">–</span>;
+}
+
+/** Jumlah foto; "Belum ada" ditandai merah bila fitur berurgensi tinggi. */
+function PhotoCell({ layer, f }: { layer: Layer; f: Feature }) {
+  const t = useT();
+  const settings = useSettings().data;
   const n = f.mediaCount ?? 0;
+  const high = urgencyOf(layer, f.properties, settings?.urgensi) === 'tinggi';
+  return <span className={cn('tabular-nums', !n && high ? 'text-danger' : 'text-muted')}>{n ? t('doc.photos', { n }) : t('doc.empty')}</span>;
+}
+
+/** Keputusan tindak lanjut: chip (warna dari pengaturan) yang membuka form notulensi. */
+function DecisionCell({ layer, f, writable, onSaved }: { layer: Layer; f: Feature; writable: boolean; onSaved: () => unknown }) {
+  const t = useT();
+  const settings = useSettings().data;
   const keputusan = (f.properties.keputusan as string | null | undefined) ?? null;
   const catatan = (f.properties.catatan_keputusan as string | null | undefined) ?? null;
   const [open, setOpen] = useState(false);
@@ -315,22 +364,16 @@ function DocCell({ layer, f, writable, onSaved }: { layer: Layer; f: Feature; wr
   const tone = settings?.keputusan.opsi.find((o) => o.nilai === keputusan)?.warna ?? 'default';
   const chip = keputusan
     ? <Chip size="sm" variant="soft" color={tone}>{keputusan}</Chip>
-    : <span className="text-xs text-muted">{t('decision.none')}</span>;
+    : <span className="text-sm text-muted">{t('decision.none')}</span>;
   return (
-    <span className="flex max-w-56 flex-wrap items-center justify-center gap-x-2 gap-y-1">
-      {u && <UrgencyBadge value={u} />}
-      {hasDocs(layer) && (
-        <span className={n ? 'text-xs text-muted tabular-nums' : u === 'tinggi' ? 'text-xs font-medium text-danger' : 'text-xs text-muted'}>
-          {n ? t('doc.photos', { n }) : t('doc.empty')}
-        </span>
-      )}
+    <>
       {writable ? (
         <Tip label={catatan ?? t('decision.label')}>
           <Button size="sm" variant="ghost" onPress={() => setOpen(true)} aria-label={t('decision.of', { id: f.id })} className="h-7 px-2">{chip}</Button>
         </Tip>
-      ) : keputusan && <span title={catatan ?? undefined}>{chip}</span>}
+      ) : keputusan ? <span title={catatan ?? undefined}>{chip}</span> : <span className="text-muted">–</span>}
       {open && <DecisionDialog f={f} layer={layer} subject={featureLabel(f.properties, layer, f.id)} onClose={() => setOpen(false)} onSaved={onSaved} />}
-    </span>
+    </>
   );
 }
 

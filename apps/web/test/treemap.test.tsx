@@ -23,11 +23,11 @@ describe('PolaRuang', () => {
     render(<QueryClientProvider client={createQueryClient()}><PrefsProvider><MemoryRouter>
       <PolaRuang rows={[...rows, { key: null, count: 1, lengthKm: 0, areaHa: 50 }]} layer={LAYERS.find((l) => l.slug === 'penggunaan-lahan')} />
     </MemoryRouter></PrefsProvider></QueryClientProvider>);
-    const list = screen.getByRole('list', { name: 'Rencana pola ruang' });
+    const list = screen.getByRole('list', { name: 'Rencana Pola Ruang' });
     const items = within(list).getAllByRole('listitem');
     expect(items).toHaveLength(8);
     expect(items[0]).toHaveTextContent('A');
     expect(items.at(-1)).toHaveTextContent('Lainnya');
-    expect(screen.getByRole('link', { name: /Rencana pola ruang/ })).toHaveAttribute('href', '/peta?layer=penggunaan-lahan');
+    expect(screen.getByRole('link', { name: /Rencana pola ruang/i })).toHaveAttribute('href', '/peta?layer=penggunaan-lahan');
   });
 });

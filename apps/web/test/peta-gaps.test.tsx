@@ -25,7 +25,7 @@ describe('Peta: lokasi saya & potensi bencana', () => {
     // Raster per tile dari ImageServer BNPB (default Banjir), dipotong ke batas; zona vektor DB tidak ditambahkan.
     await waitFor(() => expect(fakeMap.addSource).toHaveBeenCalledWith('hazard-raster', expect.objectContaining({ type: 'raster', tiles: ['inarisk://layer_bahaya_banjir/{bbox-epsg-3857}'], bounds: [110, -8, 110.3, -7.6] })));
     expect(fakeMap.addSource).not.toHaveBeenCalledWith('src-potensi-bencana', expect.anything());
-    expect(screen.getAllByText('Indeks bahaya InaRISK BNPB').length).toBeGreaterThan(0); // judul legenda kelas
+    expect(screen.getAllByText('Indeks Bahaya InaRISK BNPB').length).toBeGreaterThan(0); // judul legenda kelas
   });
 });
 
@@ -48,7 +48,7 @@ describe('Peta: legenda (checkbox kelas & kelompok, ruas SK, titik)', () => {
     expect((await screen.findAllByText('2 ruas, 7,3 km', {}, { timeout: 5000 })).length).toBeGreaterThan(0);
     expect(screen.getAllByText('4').length).toBeGreaterThan(0); // titik: jumlah, bukan luas/panjang
 
-    const group = screen.getAllByRole('checkbox', { name: 'Tampilkan semua kelas Pertanian' })[0]!;
+    const group = screen.getAllByRole('checkbox', { name: 'Tampilkan Semua Kelas Pertanian' })[0]!;
     await userEvent.click(group);
     expect(group).not.toBeChecked();
     await userEvent.click(group);
@@ -60,9 +60,9 @@ describe('Peta: legenda (checkbox kelas & kelompok, ruas SK, titik)', () => {
     await userEvent.click(mati);
     expect(mati).toBeChecked();
 
-    // Legenda tanpa judul tetap memunculkan "Tampilkan semua" saat ada kelas yang dimatikan.
+    // Legenda tanpa judul tetap memunculkan "Tampilkan Semua" saat ada kelas yang dimatikan.
     await userEvent.click(screen.getAllByRole('checkbox', { name: /^A/ })[0]!);
-    expect(screen.getAllByRole('button', { name: 'Tampilkan semua' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Tampilkan Semua' }).length).toBeGreaterThan(0);
   });
 });
 
@@ -83,7 +83,7 @@ describe('Peta: popup ruas & layer bertingkat', () => {
     show(ruas, { nama_ruas: 'Bendo - Bolon', kapanewon: 'Kalibawang', kecamatan: 'Kalibawang', panjang_km: 1.234, lebar_km: 0.005, kondisi: 'Rusak Berat', rusak_berat_km: 1.25, baik_km: 0.5, tahun_survei: 2025 });
     expect(await screen.findByText('1,23 km')).toBeInTheDocument();
     const labels = screen.getAllByRole('term').map((d) => d.textContent);
-    expect(labels).toEqual(['Kondisi', 'Panjang', 'Tahun data', 'Tahun survei', 'Lebar', 'Kapanewon']);
+    expect(labels).toEqual(['Kondisi', 'Panjang', 'Tahun Data', 'Tahun survei', 'Lebar', 'Kapanewon']);
     expect(screen.getByText('2025')).toBeInTheDocument();
     expect(screen.getByText('0,01 km')).toBeInTheDocument();
     expect(screen.queryByText(/km disurvei|Kondisi survei/)).not.toBeInTheDocument();

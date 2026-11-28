@@ -98,3 +98,25 @@ export const SETTINGS = {
     permukiman: { layer: 'tutupan-lahan', field: 'kelas', nilai: 'Permukiman dan Tempat Kegiatan' },
   },
 };
+
+/** Segmen DatePicker (DateInput) dalam satu grup berlabel: hari, bulan, tahun. */
+const segs = (group: HTMLElement) => (['day', 'month', 'year'] as const).map((t) => group.querySelector<HTMLElement>(`[data-type="${t}"]`)!);
+
+/** Isi DateInput dengan ISO `YYYY-MM-DD` lewat keyboard, atau kosongkan (`''`). */
+export const setDate = async (group: HTMLElement, iso: string) => {
+  const [d, m, y] = segs(group);
+  if (!iso) {
+    for (const s of [y!, m!, d!]) { await userEvent.click(s); await userEvent.keyboard('{Backspace}{Backspace}{Backspace}{Backspace}'); }
+    return;
+  }
+  const [yy, mm, dd] = iso.split('-');
+  await userEvent.click(d!); await userEvent.keyboard(dd!);
+  await userEvent.click(m!); await userEvent.keyboard(mm!);
+  await userEvent.click(y!); await userEvent.keyboard(yy!);
+};
+
+/** Nilai DateInput sebagai ISO (kosong bila belum lengkap). */
+export const dateOf = (group: HTMLElement) => {
+  const [d, m, y] = segs(group).map((s) => s?.getAttribute('aria-valuenow'));
+  return d && m && y ? `${y.padStart(4, '0')}-${m.padStart(2, '0')}-${d.padStart(2, '0')}` : '';
+};

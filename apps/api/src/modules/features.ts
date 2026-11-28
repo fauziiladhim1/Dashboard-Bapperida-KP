@@ -1,4 +1,5 @@
 import shpwrite from '@mapbox/shp-write';
+import { valueError } from '../lib/field-types.js';
 import { Router, type Response } from 'express';
 import { z } from 'zod';
 import type { Sql } from '../db/client.js';
@@ -70,14 +71,16 @@ const assertDrawable = async (sql: Sql, layer: Layer, geometry: Geometry) => {
 export const validateProperties = (layer: Layer, props: Props, partial = false): Props => {
   const errors: string[] = [];
   for (const f of layer.fields) {
+    // Field yang disembunyikan ("dihapus") tidak lagi diwajibkan atau divalidasi; nilai lamanya dibiarkan.
+    if (f.hidden) continue;
     const v = props[f.key];
     const empty = v === undefined || v === null || v === '';
     if (empty) {
       if (f.required && !partial) errors.push(`${f.key} wajib diisi`);
       continue;
     }
-    if (f.type === 'number' && typeof v !== 'number') errors.push(`${f.key} harus angka`);
-    if (f.type === 'select' && f.options && !f.options.includes(String(v))) errors.push(`${f.key} harus salah satu: ${f.options.join(', ')}`);
+    const err = valueError(f, v);
+    if (err) errors.push(err);
   }
   if (errors.length) throw new HttpError(400, errors.join('; '));
   return props;

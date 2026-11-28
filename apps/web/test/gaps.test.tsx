@@ -107,7 +107,7 @@ describe('widgets Ringkasan: cabang tepi', () => {
     vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({ x: 0, y: 0, left: 0, top: 0, width: 600, height: 300, right: 600, bottom: 300, toJSON: () => ({}) } as DOMRect);
     const points = [2024, 2025].map((tahun) => ({ tahun, miskin: 10, jalanKm: 0, jalanRusakKm: 0, layers: { PJU: tahun - 2000 } }));
     inRouter(<TimeSeries points={points} />);
-    await choose(/Analisis/, 'Jumlah fitur layer');
+    await choose(/Analisis/, 'Jumlah Fitur Layer');
     fireEvent.mouseMove(document.querySelector('.recharts-wrapper')!, { clientX: 560, clientY: 150 });
     await waitFor(() => expect(document.querySelector('.recharts-tooltip-wrapper')?.textContent).toContain('25 fitur'));
   });
@@ -185,7 +185,7 @@ describe('unggah: cek nilai & kolom keputusan', () => {
     const fields = [{ key: 'n', label: 'N', type: 'number' }, { key: 's', label: 'S', type: 'select', options: ['A', 'B'] }] as never;
     bare(<ColumnMap fields={fields} columns={['N', 'S']} value={{ n: 'N', s: 'S' }} onChange={() => {}}
       sample={{ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: null as never, properties: { N: 'x', S: 'C' } }] }} />);
-    expect(screen.getByText('1 nilai bukan angka; pilih kolom lain')).toBeInTheDocument();
+    expect(screen.getByText('1 nilai bukan desimal; pilih kolom lain')).toBeInTheDocument();
     expect(screen.getByText('1 nilai di luar opsi (A, B); pilih kolom lain')).toBeInTheDocument();
   });
 
@@ -228,6 +228,9 @@ it('useNearViewport: menunggu elemen mendekati viewport, lalu melepas observer',
   vi.unstubAllGlobals();
 });
 
-it('preloadPage: segmen dikenal memuat chunk halaman, segmen asing diabaikan', () => {
-  expect(() => { preloadPage(''); preloadPage('/peta'); preloadPage('/tidak-ada'); }).not.toThrow();
+it('preloadPage: segmen dikenal memuat chunk halaman, segmen asing diabaikan', async () => {
+  // Ditunggu: import() yang masih jalan saat environment dibongkar memicu EnvironmentTeardownError.
+  await expect(preloadPage('')).resolves.toBeDefined();
+  await expect(preloadPage('/peta')).resolves.toBeDefined();
+  expect(preloadPage('/tidak-ada')).toBeUndefined();
 });

@@ -38,7 +38,7 @@ const BY_SEGMENT: Record<string, () => Promise<unknown>> = {
  * jadi lazy() di bawah memakai modul yang sama.
  */
 export function preloadPage(pathname: string) {
-  void BY_SEGMENT[pathname.split('/')[1] ?? '']?.();
+  return BY_SEGMENT[pathname.split('/')[1] ?? '']?.();
 }
 
 export const createQueryClient = () => {

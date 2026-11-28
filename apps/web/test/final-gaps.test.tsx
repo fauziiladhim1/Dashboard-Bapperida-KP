@@ -17,10 +17,11 @@ const wrap = (ui: React.ReactNode) =>
 describe('Data: dialog', () => {
   const base = { 'GET /auth/me': { user: user('editor') }, 'GET /layers': LAYERS, 'GET /stats/ruas-jalan': [], 'GET /layers/pju/features': page([]) };
 
-  it('Layer baru bisa dibuka sebelum daftar layer termuat', async () => {
+  it('Layer Baru bisa dibuka sebelum daftar layer termuat', async () => {
     mockApi({ ...base, 'GET /layers': () => new Promise(() => undefined) });
     renderAt('/data');
-    await userEvent.click(await screen.findByRole('button', { name: 'Layer baru' }, { timeout: 5000 }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Layer' }, { timeout: 5000 }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Layer Baru' }));
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });
 
@@ -28,7 +29,7 @@ describe('Data: dialog', () => {
     mockApi(base);
     renderAt('/data/pju');
     await userEvent.click(await screen.findByRole('button', { name: /Unggah Data/ }, { timeout: 5000 }));
-    const input = within(await screen.findByRole('dialog')).getByLabelText(/Tahun data/);
+    const input = within(await screen.findByRole('dialog')).getByLabelText(/Tahun data/i);
     await userEvent.clear(input);
     await userEvent.tab();
     expect(input).toHaveValue(String(new Date().getFullYear()));
@@ -90,7 +91,7 @@ describe('Ringkasan: kecamatan, tanpa ruas rusak, selisih nol & turun', () => {
       now,
     ],
   });
-  const roadCard = () => screen.getByRole('link', { name: 'Jalan kabupaten rusak berat' }).closest<HTMLElement>('.card')!;
+  const roadCard = () => screen.getByRole('link', { name: 'Jalan Kabupaten Rusak Berat' }).closest<HTMLElement>('.card')!;
 
   it('kalurahan teratas di kecamatan terpilih; rusak berat turun; PJU tanpa selisih', async () => {
     setup([{ key: 'Baik', count: 3, lengthKm: 9, areaHa: 0 }]);
@@ -101,7 +102,7 @@ describe('Ringkasan: kecamatan, tanpa ruas rusak, selisih nol & turun', () => {
     expect(await within(roadCard()).findByText(/^-1 km dibanding 2025/)).toBeInTheDocument();
     expect(within(roadCard()).getByText('0 km')).toBeInTheDocument();
     expect(within(roadCard()).getByText(/^Kemantapan 100%, /)).toBeInTheDocument();
-    const pju = screen.getByRole('link', { name: 'Titik penerangan jalan umum' }).closest<HTMLElement>('.card')!;
+    const pju = screen.getByRole('link', { name: 'Titik Penerangan Jalan Umum' }).closest<HTMLElement>('.card')!;
     expect(within(pju).queryByText(/dibanding/)).not.toBeInTheDocument();
   });
 

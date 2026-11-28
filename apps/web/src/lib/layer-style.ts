@@ -2,6 +2,9 @@ import type { ExpressionSpecification } from 'maplibre-gl';
 import type { Layer, LayerStyle } from './types';
 
 /** Atribut penentu warna: angka bertingkat (`steps.field`) atau kelas kategori (`classField`). */
+/** Field skema yang aktif (bukan yang disembunyikan/"dihapus"): dipakai tabel, form, impor, builder KPI, popup. */
+export const activeFields = (layer: Pick<Layer, 'fields'>) => layer.fields.filter((f) => !f.hidden);
+
 export const colorField = (style: LayerStyle): string | undefined => style.steps?.field ?? style.classField;
 
 /**

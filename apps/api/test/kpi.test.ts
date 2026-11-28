@@ -36,6 +36,18 @@ describe('KPI kustom', () => {
     await editor.delete(`${API}/kpi/${id}`).expect(404);
   });
 
+  it('format dua grafik (kartu Penduduk Miskin): rincian kedua & bentuknya tersimpan; atribut tak dikenal ditolak', async () => {
+    const hero = { label: 'Miskin', layerSlug: 'penduduk-miskin', measure: 'sum', sumField: 'jumlah', byField: 'kecamatan', by2Field: 'tahun', chart: 'bar', topN: 5 };
+    const created = await editor.post(`${API}/kpi`).send(hero).expect(201);
+    expect(created.body).toMatchObject({ byField: 'kecamatan', by2Field: 'tahun', chart2: 'line' });
+    const upd = await editor.patch(`${API}/kpi/${created.body.id}`).send({ ...hero, chart2: 'bar' }).expect(200);
+    expect(upd.body.chart2).toBe('bar');
+    expect((await editor.patch(`${API}/kpi/${created.body.id}`).send({ ...hero, by2Field: '' }).expect(200)).body.by2Field).toBeNull();
+    await editor.post(`${API}/kpi`).send({ ...hero, by2Field: 'tidak_ada' }).expect(400);
+    await editor.post(`${API}/kpi`).send({ ...hero, chart2: 'donut' }).expect(400);
+    await editor.delete(`${API}/kpi/${created.body.id}`).expect(204);
+  });
+
   it('menolak resep yang tak bisa dihitung', async () => {
     const err = async (body: object, status = 400) => (await editor.post(`${API}/kpi`).send({ ...miskin, ...body }).expect(status)).body;
     expect((await err({ sumField: null })).issues[0].path).toBe('sumField');
@@ -78,22 +90,35 @@ describe('tata letak Ringkasan', () => {
     expect((await viewer.get(`${API}/kpi/layout`).expect(200)).body).toEqual({ cards: [] });
     await editor.put(`${API}/kpi/layout`).send({ cards: [] }).expect(200);
     expect((await viewer.get(`${API}/kpi/layout`).expect(200)).body).toEqual({ cards: [] });
-    const cards = [{ key: 'trend', span: 12, hidden: false }, { key: 'kpi:7', span: 6, hidden: true }, { key: 'hero', span: 8, hidden: false }];
+    const cards = [{ key: 'trend', span: 12, hidden: false }, { key: 'kpi:7', span: 6, hidden: true }, { key: 'hero', span: 8, hidden: false }, { key: 'exposure', span: 12, hidden: false }];
     await viewer.put(`${API}/kpi/layout`).send({ cards }).expect(403);
     await editor.put(`${API}/kpi/layout`).send({ cards }).expect(200);
     expect((await viewer.get(`${API}/kpi/layout`).expect(200)).body.cards).toEqual(cards);
     await editor.put(`${API}/kpi/layout`).send({ cards: [{ key: 'drop table', span: 4 }] }).expect(400);
     await editor.put(`${API}/kpi/layout`).send({ cards: [cards[0], cards[0]] }).expect(400);
     await editor.put(`${API}/kpi/layout`).send({ cards: [{ key: 'hero', span: 3 }] }).expect(400);
+    // Tampilan kartu: judul/catatan/ikon/warna tersimpan; ikon hanya nama ikon atau PNG base64 (bukan SVG/URL).
+    const styled = [{ key: 'pju', span: 4, hidden: false, title: 'Lampu jalan', note: 'Sumber: Dishub', icon: 'g:Bulb', tone: 'warning', foot: 'Data per Desember' },
+      { key: 'hazard', span: 5, hidden: false, footOff: true, sub: '{jenis}: {pct} wilayah', arrange: 'stack' },
+      { key: 'util', span: 4, hidden: false, icon: 'data:image/png;base64,iVBORw0KGgo=', tone: '#2563EB' }];
+    await editor.put(`${API}/kpi/layout`).send({ cards: styled }).expect(200);
+    expect((await viewer.get(`${API}/kpi/layout`).expect(200)).body.cards).toEqual(styled);
+    await editor.put(`${API}/kpi/layout`).send({ cards: [{ key: 'pju', span: 4, icon: 'data:image/svg+xml;base64,PHN2Zz4=' }] }).expect(400);
+    await editor.put(`${API}/kpi/layout`).send({ cards: [{ key: 'pju', span: 4, icon: 'https://evil.example/x.png' }] }).expect(400);
+    await editor.put(`${API}/kpi/layout`).send({ cards: [{ key: 'pju', span: 4, tone: 'pink' }] }).expect(400);
     await editor.put(`${API}/kpi/layout`).send({ cards: [] }).expect(200);
   });
 });
 
 describe('statistik layer multi-tahun', () => {
-  it('`tahun` menyaring atribut tahun (KPI kustom ikut pemilih tahun global)', async () => {
+  it('`tahun` menyaring atribut tahun: data tahun terakhir <= tahun (KPI kustom ikut pemilih tahun global)', async () => {
     const q = (tahun: number, kec = '') => editor.get(`${API}/stats/layers/penduduk-miskin?sum=jumlah&by=kecamatan&tahun=${tahun}${kec}`).expect(200);
     expect((await q(2025)).body.find((r: { key: string }) => r.key === 'Wates')?.value).toBeGreaterThanOrEqual(120);
     expect((await q(2001)).body).toEqual([]);
+    // Tahun tanpa data: tahun data terakhir sebelumnya, seperti kartu Penduduk Miskin bawaan.
+    const later = (await q(2099)).body;
+    expect(later.length).toBeGreaterThan(0);
+    expect(later).toEqual((await q(2098)).body);
     expect((await q(2001, '&kecamatan=Wates')).body).toEqual([]);
   });
 });

@@ -1,15 +1,17 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowsExpand, ChartColumn, Copy, Hashtag, Pencil, Plus, Square, TrashBin } from '@gravity-ui/icons';
+import { ArrowsExpand, ChartColumn, Copy, Hashtag, Plus, Square, TrashBin } from '@gravity-ui/icons';
 import { endpoints, refreshData } from '@/lib/api';
-import { fmt } from '@/lib/format';
+import { fmt, fmtCompact, pct } from '@/lib/format';
 import { classLabel, colorOf } from '@/lib/layer-style';
 import { confirmDanger, toast, toastError } from '@/lib/notify';
 import { useT } from '@/lib/prefs';
+import { fill, useCardStyle } from '@/components/common/card-style';
 import type { CustomKpi, KpiMeasure, Layer, StatRow } from '@/lib/types';
 import { seriOf } from '@/lib/year-range';
 import { ToolBtn } from './layout';
 import { useStats } from './use-stats';
 import { Kpi, LEGEND_BOX, LEGEND_TITLE, MiniDonut, pickChart, RankBars, Spark } from './widgets';
+import { ColumnBars, TablePanel, TreemapPanel } from './panels';
 
 /** Nilai satu baris statistik sesuai ukuran KPI. */
 const valueOf = (r: StatRow, k: CustomKpi) =>
@@ -38,6 +40,12 @@ const totalOf = (rows: StatRow[], k: CustomKpi) => {
 };
 /** Warna kategori bila rincian bukan field kelas layer (warna kelas tak berlaku): palet chart tema. */
 const PALETTE = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', '#c08a6b', '#8a9bb5', '#b5a26b'];
+/**
+ * Peringkat (batang/kolom) satu ukuran = satu rona yang memudar per peringkat, sama dengan kartu Penduduk Miskin bawaan:
+ * merah untuk KPI peringatan, aksen untuk lainnya. Warna kategori (palet) hanya untuk porsi (donut/treemap).
+ */
+const rankColor = (warn: boolean, i: number) => `color-mix(in srgb, var(--${warn ? 'danger' : 'accent'}) ${[100, 80, 60, 45, 30][Math.min(i, 4)]}%, transparent)`;
+const isYearKey = (k: string) => /^\d{4}$/.test(k);
 
 /**
  * Versi layer yang dipakai kartu: layer bertahun (mis. "PJU 2025") diganti versi seri yang sama pada tahun global,
@@ -60,11 +68,17 @@ export function CustomKpiCard({ k, layer, kecamatan, tahun, to }: { k: CustomKpi
     sum: k.sumField ?? undefined, agg: 'avg', nogroup: '1', tahun: k.byField === 'tahun' ? undefined : tahun,
     ...(k.whereField && k.whereEq !== null && { where: k.whereField, eq: k.whereEq }),
   });
+  // Grafik kedua (format dua grafik): rincian lain; deret per tahun tidak disaring tahun global.
+  const q2 = useStats(layer?.slug ?? k.layerSlug, kecamatan, !!layer && !!k.by2Field, {
+    by: k.by2Field ?? undefined, sum: k.sumField ?? undefined, agg: isAgg(k.measure) && k.measure !== 'sum' ? k.measure : undefined, tahun: k.by2Field === 'tahun' ? undefined : tahun,
+    ...(k.whereField && k.whereEq !== null && { where: k.whereField, eq: k.whereEq }),
+  });
   const rows = q.data ?? [];
   const total = k.measure === 'avg' ? (overall.data?.[0]?.value ?? 0) : totalOf(rows, k);
   const unit = k.unit ?? UNIT[k.measure];
   const format = (n: number) => `${fmt(Math.round(n * 100) / 100)}${unit ? ` ${unit}` : ''}`;
   const byClass = !!layer && k.byField === layer.style.classField;
+  const ranked = !byClass && ['auto', 'bar', 'column'].includes(k.chart);
   const parts = k.byField && layer
     ? rows.filter((r) => valueOf(r, k) > 0).map((r, i) => ({
       key: r.key ?? '', label: r.key ? classLabel(layer.style, r.key) : t('ov.noClass'), value: valueOf(r, k),
@@ -74,31 +88,64 @@ export function CustomKpiCard({ k, layer, kecamatan, tahun, to }: { k: CustomKpi
   const byLabel = layer?.fields.find((f) => f.key === k.byField)?.label ?? k.byField ?? '';
   const picked = k.chart === 'auto' ? pickChart(parts.map((p) => p.key || null)) : k.chart;
   // Rata-rata/min/maks antarkategori bukan porsi dari total: donut diganti batang.
-  const kind = picked === 'donut' && !additive(k.measure) ? 'bar' : picked;
+  const kind = (picked === 'donut' || picked === 'treemap') && !additive(k.measure) ? 'bar' : picked;
   const byLabelKey = (a: { key: string }, b: { key: string }) => a.key.localeCompare(b.key, 'id', { numeric: true });
   const sorted = [...parts].sort(k.sort === 'label' ? byLabelKey : k.sort === 'asc' ? (a, b) => a.value - b.value : (a, b) => b.value - a.value)
-    .slice(0, k.topN ?? (kind === 'bar' ? 6 : undefined));
+    .slice(0, k.topN ?? (kind === 'bar' ? 6 : kind === 'column' ? 8 : undefined))
+    .map((p, i) => (ranked && (kind === 'bar' || kind === 'column') ? { ...p, color: rankColor(k.warn, i) } : p));
   // Deret berurutan (mis. per tahun): angka utama = titik terakhir s.d. tahun global, bukan jumlah semua tahun.
   const series = [...parts].sort(byLabelKey);
   const upTo = series.filter((p) => tahun === undefined || !/^\d{4}$/.test(p.key) || Number(p.key) <= tahun);
   const figure = kind === 'line' && upTo.length ? upTo.at(-1)!.value : total;
   const whereLabel = layer?.fields.find((f) => f.key === k.whereField)?.label ?? k.whereField;
+  // Judul legenda bisa diganti template dari Tampilan kartu (`{by}` = nama rincian).
+  const style = useCardStyle();
+  const legend = (def: string) => (style.legend ? fill(style.legend, { by: byLabel }) : def);
   const chart = !parts.length || kind === 'number' ? null
-    : kind === 'line' ? <Spark className="mt-2 h-20" labels={(n) => format(n)}
+    : kind === 'line' ? <Spark className="mt-2 h-20" labels={fmtCompact}
       points={series.map((p) => ({ label: p.label, value: p.value }))} />
-    : kind === 'donut' ? <MiniDonut title={t('kpi.compBy', { by: byLabel })} items={sorted} total={total} format={format} />
+    : kind === 'donut' ? <MiniDonut title={legend(t('kpi.compBy', { by: byLabel }))} items={sorted} total={total} format={format} />
+    // Panel tambahan: kolom (batang vertikal), treemap (porsi), tabel rincian; judul legenda sama dengan batang.
+    : kind === 'column' || kind === 'treemap' || kind === 'table' ? (
+      <div className={LEGEND_BOX}>
+        <p className={LEGEND_TITLE}>{legend(t(kind === 'treemap' ? 'kpi.compBy' : k.sort === 'asc' ? 'kpi.bottom' : k.sort === 'label' ? 'kpi.per' : 'kpi.top', { by: byLabel }))}</p>
+        {kind === 'column' ? <ColumnBars items={sorted} format={format} />
+          : kind === 'treemap' ? <TreemapPanel items={sorted} total={total} format={format} />
+          : <TablePanel items={sorted} total={total} format={format} by={byLabel} additive={additive(k.measure)} />}
+      </div>
+    )
     : (
       <div className={LEGEND_BOX}>
-        <p className={LEGEND_TITLE}>{t(k.sort === 'asc' ? 'kpi.bottom' : k.sort === 'label' ? 'kpi.per' : 'kpi.top', { by: byLabel })}</p>
+        <p className={LEGEND_TITLE}>{legend(t(k.sort === 'asc' ? 'kpi.bottom' : k.sort === 'label' ? 'kpi.per' : 'kpi.top', { by: byLabel }))}</p>
         <RankBars items={sorted} format={format} highlight={sorted[0]?.key} />
       </div>
     );
+  const by2Label = layer?.fields.find((f) => f.key === k.by2Field)?.label ?? k.by2Field ?? '';
+  const parts2 = (q2.data ?? []).filter((r) => r.key && valueOf(r, k) > 0)
+    .map((r, i) => ({ key: r.key!, label: r.key!, value: valueOf(r, k), color: PALETTE[i % PALETTE.length]! })).sort(byLabelKey);
+  const chart2 = k.by2Field && parts2.length > 0 && (
+    <div className={LEGEND_BOX}>
+      <p className={LEGEND_TITLE}>{t('kpi.trendBy', { by: by2Label })}</p>
+      {k.chart2 === 'line'
+        ? <Spark className="h-28" labels={fmtCompact} points={parts2.map((p) => ({ label: p.label, value: p.value }))} />
+        : <RankBars items={parts2.map((p, i) => ({ ...p, color: rankColor(k.warn, parts2.length - 1 - i) }))} format={format} />}
+    </div>
+  );
+  // Pembanding tahunan seperti kartu bawaan: deret per tahun (grafik kedua, atau rincian utama per tahun) → titik terakhir
+  // s.d. tahun global vs tahun sebelumnya. Naik = buruk untuk KPI peringatan.
+  const years = (k.by2Field && /^tahun/.test(k.by2Field) ? parts2 : k.byField && /^tahun/.test(k.byField) ? series : [])
+    .filter((p) => isYearKey(p.key) && (tahun === undefined || Number(p.key) <= tahun));
+  const [prevY, lastY] = [years.at(-2), years.at(-1)];
+  const d = prevY && lastY ? lastY.value - prevY.value : 0;
+  const sign = d > 0 ? '+' : '';
+  const delta = d ? { text: t('ov.kpiYoY', { delta: `${sign}${format(d)} (${sign}${pct(d, prevY!.value)}%)`, tahun: prevY!.key }), up: d > 0, bad: k.warn ? d > 0 : d < 0 } : undefined;
   return (
     <Kpi tone={k.warn ? 'bad' : undefined} icon={ICON[k.measure]} label={k.label} value={q.data ? figure : null} format={format}
-      loading={q.loading} to={layer ? to(layer.slug) : undefined}
+      loading={q.loading} to={layer ? to(layer.slug) : undefined} delta={delta}
       // Tanpa versi layer di tahun global: kartu "belum ada data" (layer dihapus = KPI ikut terhapus, FK cascade).
       sub={layer && [kind === 'line' && upTo.length ? `${layer.name}, ${upTo.at(-1)!.label}` : layer.name, k.whereField && `${whereLabel}: ${k.whereEq}`].filter(Boolean).join(', ')}>
-      {chart}
+      {/* Dua grafik berdampingan bila kartu cukup lebar (container query), bertumpuk di kartu sempit. */}
+      {chart2 ? <div className="grid gap-4 @3xl:grid-cols-2">{chart}{chart2}</div> : chart}
     </Kpi>
   );
 }
@@ -114,7 +161,7 @@ export function KpiTile({ k, all, layers, kecamatan, tahun, to }: {
  * Aksi KPI (ubah, duplikat, hapus) di toolbar tata letak kartu (mode edit), bukan mengambang di atas judul kartu:
  * satu baris ikon 28px yang sejajar dengan geser/lebar/sembunyikan, seperti toolbar objek dasbor Tableau.
  */
-export function KpiActions({ k, onEdit }: { k: CustomKpi; onEdit: () => void }) {
+export function KpiActions({ k }: { k: CustomKpi }) {
   const t = useT();
   const qc = useQueryClient();
   const remove = useMutation({
@@ -133,7 +180,6 @@ export function KpiActions({ k, onEdit }: { k: CustomKpi; onEdit: () => void }) 
   };
   return (
     <>
-      <ToolBtn label={`${t('common.edit')} ${k.label}`} onPress={onEdit}><Pencil className="size-3.5" /></ToolBtn>
       <ToolBtn label={`${t('kpi.duplicate')} ${k.label}`} disabled={duplicate.isPending} onPress={() => duplicate.mutate()}><Copy className="size-3.5" /></ToolBtn>
       <ToolBtn label={`${t('common.delete')} ${k.label}`} className="text-danger" onPress={() => void confirmDelete()}><TrashBin className="size-3.5" /></ToolBtn>
     </>

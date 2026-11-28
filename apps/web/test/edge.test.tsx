@@ -30,7 +30,7 @@ describe('kasus tepi', () => {
       'GET /features/9': { id: '9', properties: {}, media: [], updatedAt: '2026-11-02T03:04:05.678Z' },
     });
     const view = renderAt('/peta');
-    await screen.findByText('Layer peta', {}, { timeout: 15_000 }); // chunk Peta dimuat malas: lambat saat 19 worker paralel
+    await screen.findByText('Layer Peta', {}, { timeout: 15_000 }); // chunk Peta dimuat malas: lambat saat 19 worker paralel
     await waitFor(() => expect(fakeMap.addSource).toHaveBeenCalled());
     fakeMap.rendered = [{ id: 9, source: 'src-jalan-kabupaten' }];
     fakeMap.fire('click', { point: {}, lngLat: { lng: 110, lat: -7 } });
@@ -74,7 +74,8 @@ describe('kasus tepi', () => {
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
-    await userEvent.click(screen.getByRole('button', { name: 'Layer baru' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Layer' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Layer Baru' }));
     await screen.findByRole('dialog');
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
@@ -94,11 +95,11 @@ describe('kasus tepi 2', () => {
     renderAt('/data');
     await userEvent.click(await screen.findByRole('button', { name: /Unggah Data/ }, { timeout: 5000 }));
     const dialog = await screen.findByRole('dialog');
-    await userEvent.upload(within(dialog).getByLabelText('File shapefile atau GeoJSON'), new File(['PK'], 'a.zip'));
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Periksa file' }));
+    await userEvent.upload(within(dialog).getByLabelText('File Shapefile atau GeoJSON'), new File(['PK'], 'a.zip'));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Periksa File' }));
     expect(await within(dialog).findByRole('button', { name: 'Memeriksa…' })).toBeDisabled();
     resolveCheck({ count: 1, skipped: 0, hasPrj: true, columns: [], missingFields: [] });
-    await userEvent.click(await within(dialog).findByRole('button', { name: /Simpan 1 fitur/ }));
+    await userEvent.click(await within(dialog).findByRole('button', { name: /Simpan 1 fitur/i }));
     expect(await within(dialog).findByRole('button', { name: 'Menyimpan…' })).toBeDisabled();
   });
 
@@ -114,12 +115,12 @@ describe('kasus tepi 2', () => {
       'GET /features/9': { status: 500, body: { error: 'x' }, __reply: true },
     });
     renderAt('/');
-    await screen.findByText('Jalan kabupaten rusak berat', {}, { timeout: 5000 });
+    await screen.findByText('Jalan Kabupaten Rusak Berat', {}, { timeout: 5000 });
     expect(screen.queryByRole('radio', { name: 'Per ruas' })).not.toBeInTheDocument(); // tanpa data: tak ada pengalih grafik
 
     window.history.pushState({}, '', '/peta');
     window.dispatchEvent(new PopStateEvent('popstate'));
-    await screen.findByText('Layer peta', {}, { timeout: 15_000 }); // chunk Peta dimuat malas: lambat saat 19 worker paralel
+    await screen.findByText('Layer Peta', {}, { timeout: 15_000 }); // chunk Peta dimuat malas: lambat saat 19 worker paralel
     await waitFor(() => expect(fakeMap.addSource).toHaveBeenCalled());
     fakeMap.rendered = [{ id: 9, source: 'src-jalan-kabupaten' }];
     fakeMap.fire('click', { point: {}, lngLat: { lng: 110, lat: -7 } });
@@ -140,11 +141,11 @@ describe('hapus foto inline', () => {
     });
     renderAt('/data/jalan-kabupaten?edit=1');
     const dialog = await screen.findByRole('dialog', {}, { timeout: 5000 });
-    await userEvent.click(await within(dialog).findByRole('button', { name: 'Hapus foto' }));
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Hapus Foto' }));
     const confirm = within(dialog).getByRole('button', { name: 'Yakin hapus?' });
     act(() => confirm.blur());
     expect(within(dialog).queryByRole('button', { name: 'Yakin hapus?' })).not.toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Hapus foto' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Hapus Foto' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Yakin hapus?' }));
     expect(await screen.findByText('Gagal hapus')).toBeInTheDocument();
   });

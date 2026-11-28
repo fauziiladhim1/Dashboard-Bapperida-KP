@@ -1,11 +1,12 @@
 import { useMutation } from '@tanstack/react-query';
+import { validRaw } from '@/lib/field-types';
 import { FileZipper } from '@gravity-ui/icons';
 import { Alert, Button, Card, Label, ListBox, NumberField, ProgressBar, Select } from '@heroui/react';
 import { useEffect, useId, useState } from 'react';
 import { Map, MapGeoJSON, useMap } from '@/components/ui/map';
 import { endpoints, type UploadSummary } from '@/lib/api';
 import { fmt } from '@/lib/format';
-import { KULON_PROGO_CENTER } from '@/lib/layer-style';
+import { activeFields, KULON_PROGO_CENTER } from '@/lib/layer-style';
 import type { Layer } from '@/lib/types';
 import { AppModal } from '@/components/common/AppModal';
 import { ErrorAlert } from '@/components/common/ErrorAlert';
@@ -37,9 +38,9 @@ const NONE = '__none__';
 export const mapIssues = (fields: Layer['fields'], map: Record<string, string>, sample?: GeoJSON.FeatureCollection) =>
   Object.fromEntries(fields.flatMap((f) => {
     const col = map[f.key];
-    if (!col || (f.type !== 'number' && !(f.type === 'select' && f.options?.length))) return [];
+    if (!col || f.type === 'text') return [];
     const bad = (sample?.features ?? []).map((x) => x.properties?.[col]).filter((v) => v !== null && v !== undefined && v !== ''
-      && (f.type === 'number' ? !Number.isFinite(Number(v)) : !f.options!.includes(String(v)))).length;
+      && !validRaw(f, v)).length;
     return bad ? [[f.key, bad]] : [];
   })) as Record<string, number>;
 
@@ -60,7 +61,7 @@ export function UploadDialog({ layer, onClose, onSaved }: Props) {
 
   const check = useMutation({
     mutationFn: (f: File) => endpoints.uploadShp(layer.slug, f, mode, true),
-    onSuccess: (s) => { setSummary(s); setMap(suggestMap(layer.fields, s.columns)); },
+    onSuccess: (s) => { setSummary(s); setMap(suggestMap(activeFields(layer), s.columns)); },
   });
   const commit = useMutation({
     mutationFn: (f: File) => endpoints.uploadShp(layer.slug, f, mode, false, tahun, map),
@@ -77,7 +78,7 @@ export function UploadDialog({ layer, onClose, onSaved }: Props) {
       footer={<>
         <Button variant="tertiary" onPress={onClose}>{t('common.cancel')}</Button>
         {summary ? (
-          <Button isDisabled={commit.isPending || Object.keys(mapIssues(layer.fields, map, summary.sample)).length > 0} onPress={() => commit.mutate(file!)}>{commit.isPending ? t('common.saving') : t('up.save', { n: fmt(summary.count) })}</Button>
+          <Button isDisabled={commit.isPending || Object.keys(mapIssues(activeFields(layer), map, summary.sample)).length > 0} onPress={() => commit.mutate(file!)}>{commit.isPending ? t('common.saving') : t('up.save', { n: fmt(summary.count) })}</Button>
         ) : (
           <Button isDisabled={!file || check.isPending} onPress={() => check.mutate(file!)}>{check.isPending ? t('up.checking') : t('up.check')}</Button>
         )}
@@ -87,7 +88,7 @@ export function UploadDialog({ layer, onClose, onSaved }: Props) {
 
         {/* Tiga bagian berjudul sama (Berkas, Pengaturan simpan, Hasil pemeriksaan): urutan baca mengikuti langkah di atas. */}
         <section aria-labelledby="upload-file" className="flex flex-col gap-3">
-        <h3 id="upload-file" className="text-sm font-semibold text-heading">{t('up.fileSection')}</h3>
+        <h3 id="upload-file" className="section-title">{t('up.fileSection')}</h3>
         <m.label
           onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
           onDragLeave={() => setDrag(false)}
@@ -111,7 +112,7 @@ export function UploadDialog({ layer, onClose, onSaved }: Props) {
 
         {/* Pengaturan simpan: dua kolom berlabel di atas + keterangan, gaya label sama dengan form lain (tanpa bingkai). */}
         <section aria-labelledby="upload-settings" className="flex flex-col gap-3">
-        <h3 id="upload-settings" className="text-sm font-semibold text-heading">{t('up.settings')}</h3>
+        <h3 id="upload-settings" className="section-title">{t('up.settings')}</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_11rem]">
           <div className="flex flex-col gap-2">
             <Label id="upload-mode-label">{t('up.mode')}</Label>
@@ -130,7 +131,7 @@ export function UploadDialog({ layer, onClose, onSaved }: Props) {
 
         {summary && (
           <section aria-labelledby="upload-result" className="flex flex-col gap-3">
-            <h3 id="upload-result" className="text-sm font-semibold text-heading">{t('up.result')}</h3>
+            <h3 id="upload-result" className="section-title">{t('up.result')}</h3>
             <div className="grid grid-cols-3 gap-2 text-center">
               <Stat label={t('up.valid')} value={fmt(summary.count)} />
               <Stat label={t('up.noGeom')} value={fmt(summary.skipped)} />
@@ -147,10 +148,10 @@ export function UploadDialog({ layer, onClose, onSaved }: Props) {
                 </Alert.Content>
               </Alert>
             )}
-            <ColumnMap fields={layer.fields} columns={summary.columns} sample={summary.sample} value={map} onChange={setMap} />
+            <ColumnMap fields={activeFields(layer)} columns={summary.columns} sample={summary.sample} value={map} onChange={setMap} />
             {/* Kolom wajib tanpa pasangan: fitur tetap tersimpan, tapi isiannya kosong sampai dilengkapi di tabel Data. */}
-            {layer.fields.some((f) => f.required && !map[f.key] && !DERIVED.has(f.key)) && (
-              <p className="text-xs text-warning">{t('up.requiredEmpty', { cols: layer.fields.filter((f) => f.required && !map[f.key] && !DERIVED.has(f.key)).map((f) => f.label).join(', ') })}</p>
+            {activeFields(layer).some((f) => f.required && !map[f.key] && !DERIVED.has(f.key)) && (
+              <p className="text-xs text-warning">{t('up.requiredEmpty', { cols: activeFields(layer).filter((f) => f.required && !map[f.key] && !DERIVED.has(f.key)).map((f) => f.label).join(', ') })}</p>
             )}
             {summary.sample && (
               <div className="h-60 overflow-hidden rounded-xl">
@@ -185,7 +186,7 @@ export function ColumnMap({ fields, columns, sample, value, onChange }: {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-2">
-        <p className="text-sm font-medium text-heading">{t('up.mapTitle')}</p>
+        <p className="section-title">{t('up.mapTitle')}</p>
         <p className="text-xs text-muted tabular-nums">{t('up.mapCount', { n: Object.keys(value).length, total: fields.length })}</p>
       </div>
       <div className="divide-y divide-separator overflow-hidden rounded-xl border border-separator">
@@ -216,7 +217,8 @@ export function ColumnMap({ fields, columns, sample, value, onChange }: {
               </Select>
               {issues[f.key] ? (
                 <span className="text-xs text-danger">
-                  {t(f.type === 'number' ? 'up.mapNotNumber' : 'up.mapNotOption', { n: fmt(issues[f.key]!), opts: (f.options ?? []).join(', ') })}
+                  {f.type === 'select' ? t('up.mapNotOption', { n: fmt(issues[f.key]!), opts: (f.options ?? []).join(', ') })
+                    : t('up.mapNotType', { n: fmt(issues[f.key]!), type: t(`fld.type.${f.type}`).toLowerCase() })}
                 </span>
               ) : (
                 <span className={cn('truncate text-xs', ex ? 'text-foreground' : 'text-muted')} title={ex}>
@@ -247,7 +249,7 @@ function Stepper({ step, labels, label: name }: { step: number; labels: string[]
           <ProgressBar aria-hidden value={i < step ? 100 : i === step ? 50 : 0} size="sm">
             <ProgressBar.Track><ProgressBar.Fill /></ProgressBar.Track>
           </ProgressBar>
-          <span className={cn('text-xs', i === step ? 'font-semibold text-heading' : i < step ? 'font-medium text-foreground' : 'text-muted')}>{i + 1}. {label}</span>
+          <span className={cn('text-xs', i === step ? 'font-medium text-heading' : i < step ? 'font-medium text-foreground' : 'text-muted')}>{i + 1}. {label}</span>
         </li>
       ))}
     </ol>

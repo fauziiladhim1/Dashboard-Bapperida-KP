@@ -11,7 +11,8 @@ const MISKIN: Layer = {
   ...LAYERS[0]!, id: 80, slug: 'penduduk-miskin', name: 'Penduduk Miskin', category: 'Sosial', year: null,
   fields: [{ key: 'kecamatan', label: 'Kecamatan', type: 'text' }, { key: 'tahun', label: 'Tahun', type: 'number' }, { key: 'jumlah', label: 'Jumlah', type: 'number' }],
 };
-const kpi = (o: Partial<CustomKpi>): CustomKpi => ({ id: 1, label: 'KPI', layerSlug: 'pju', measure: 'count', sumField: null, byField: null, whereField: null, whereEq: null, unit: null, warn: false, chart: 'auto', sort: 'desc', topN: null, sortOrder: 100, ...o });
+const kpi = (o: Partial<CustomKpi>): CustomKpi => ({ id: 1, label: 'KPI', layerSlug: 'pju', measure: 'count', sumField: null, byField: null, by2Field: null, chart2: 'line', whereField: null, whereEq: null, unit: null, warn: false, chart: 'auto', sort: 'desc', topN: null, sortOrder: 100, ...o });
+const [TOP5, TOP_ALL] = ['5 teratas', 'Semua'];
 const KPIS = [
   kpi({ id: 1, label: 'Daya PJU', measure: 'sum', sumField: 'daya_watt', byField: 'kondisi', whereField: 'kode', whereEq: 'A', unit: 'watt', warn: true }),
   // Layer bertahun: kartu memakai versi seri yang sama pada tahun global (Sekolah 2026).
@@ -61,17 +62,18 @@ describe('KPI kustom', () => {
     expect(await within(card('Jumlah sekolah')).findByText('12')).toBeInTheDocument();
     expect(within(screen.getByText('Yatim').closest<HTMLElement>('.card')!).getByText('Belum ada data untuk tahun ini')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Panjang jalan' })).toBeInTheDocument();
-    await waitFor(() => expect(card('Utilitas umum').textContent).toContain('jenis fasilitas'));
-    expect(card('Utilitas umum').querySelector('svg circle')).toBeNull(); // batang, bukan donut
+    await waitFor(() => expect(card('Utilitas Umum').textContent).toContain('jenis fasilitas'));
+    expect(card('Utilitas Umum').querySelector('svg circle')).toBeNull(); // batang, bukan donut
 
     // Di luar mode edit: tanpa tombol kelola.
     expect(screen.queryByRole('button', { name: 'Ubah Jumlah sekolah' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Tambah KPI/ })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Edit ringkasan' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Edit Ringkasan' }));
     expect(screen.getByRole('button', { name: 'Selesai' })).toHaveAttribute('aria-pressed', 'true');
 
     await userEvent.click(screen.getByRole('button', { name: 'Ubah Jumlah sekolah' }));
-    const label = await screen.findByLabelText('Judul kartu');
+    await userEvent.click(await screen.findByRole('button', { name: 'Ubah Data, Grafik & Tata Letak' }));
+    const label = await screen.findByLabelText('Judul Kartu');
     await userEvent.clear(label);
     await userEvent.type(label, 'Sekolah aktif');
     await userEvent.click(screen.getByRole('button', { name: 'Simpan' }));
@@ -98,44 +100,43 @@ describe('KPI kustom', () => {
       'POST /kpi': () => (++n === 1 ? reply(400, { error: 'Atribut tidak dikenal' }) : kpi({ id: 9 })),
     });
     renderAt('/');
-    await userEvent.click(await screen.findByRole('button', { name: 'Edit ringkasan' }, { timeout: 10000 }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit Ringkasan' }, { timeout: 10000 }));
     await userEvent.click(screen.getByRole('button', { name: /Tambah KPI/ }));
     expect(screen.getByRole('button', { name: 'Simpan' })).toBeDisabled();
-    await userEvent.type(screen.getByLabelText('Judul kartu'), 'Lebar jalan');
+    await userEvent.type(screen.getByLabelText('Judul Kartu'), 'Lebar jalan');
     // Poligon tanpa atribut angka: hanya jumlah fitur & luas.
-    await choose('Layer data', 'Penggunaan Lahan');
-    expect(screen.getByRole('button', { name: 'Total luas (ha)' })).toBeInTheDocument();
+    await choose('Layer Data', 'Penggunaan Lahan');
+    expect(screen.getByRole('button', { name: 'Total Luas (ha)' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Lebar' })).toBeNull();
     expect(screen.getByRole('radio', { name: 'Batang' })).toBeDisabled();
     // Field kelas di luar isian form (PJU: kondisi) tetap jadi dimensi.
-    await choose('Layer data', 'PJU');
+    await choose('Layer Data', 'PJU');
     expect(screen.getByRole('button', { name: 'kondisi' })).toBeInTheDocument();
     // Atribut angka = ukuran, bukan dimensi; kecuali tahun.
-    await choose('Layer data', 'Penduduk Miskin');
+    await choose('Layer Data', 'Penduduk Miskin');
     expect(screen.getByRole('button', { name: 'Tahun' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Jumlah' })).toBeInTheDocument();
-    await choose('Layer data', 'Kondisi Jalan 2026');
+    await choose('Layer Data', 'Kondisi Jalan 2026');
     // Atribut angka di rak Nilai = SUM; agregasi diganti di pil (AVG), lalu diurungkan kembali ke SUM.
     await userEvent.click(screen.getByRole('button', { name: 'Lebar' }));
     expect(screen.getByText('SUM(Lebar)')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('radio', { name: 'Rata-rata atribut' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Rata-rata Atribut' }));
     expect(screen.getByText('AVG(Lebar)')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Donut' })).toBeDisabled(); // rata-rata bukan porsi
     await userEvent.click(screen.getByRole('button', { name: 'Urungkan (Ctrl+Z)' }));
     expect(screen.getByText('SUM(Lebar)')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Ulangi (Ctrl+Y)' }));
-    await userEvent.click(screen.getByRole('radio', { name: 'Jumlah nilai atribut' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Jumlah Nilai Atribut' }));
     await userEvent.click(screen.getByRole('button', { name: 'Kondisi' }));
     await userEvent.click(screen.getByRole('radio', { name: 'Batang' }));
     // Urutan & Top N pada pil Rincian.
-    await userEvent.click(screen.getByRole('radio', { name: 'Terkecil dulu' }));
-    await userEvent.selectOptions(screen.getByLabelText('Tampilkan'), '5');
-    // Filter di rak: atribut lalu nilainya (dari data layer), keduanya select di rak Filter.
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Hanya bila atribut' }), 'Nama Ruas');
-    await screen.findByRole('option', { name: 'Jl. Wates' });
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Nilai filter' }), 'Jl. Wates');
+    await userEvent.click(screen.getByRole('radio', { name: 'Terkecil Dulu' }));
+    await choose('Tampilkan', TOP5);
+    // Filter di rak: atribut lalu nilainya (dari data layer), keduanya dropdown di rak Filter.
+    await choose('Hanya Bila Atribut', 'Nama Ruas');
+    await choose('Nilai Filter', 'Jl. Wates');
     await userEvent.type(screen.getByLabelText('Satuan (opsional)'), 'm');
-    await userEvent.click(screen.getByRole('switch', { name: 'Angka peringatan' }));
+    await userEvent.click(screen.getByRole('switch', { name: 'Angka Peringatan' }));
     // Pratinjau = kartu sungguhan dari /stats dengan resep draf.
     await waitFor(() => expect(calls.some((c) => c.url.startsWith('/stats/layers/jalan-kabupaten?') && c.url.includes('by=kondisi') && c.url.includes('sum=lebar_m') && c.url.includes('eq=Jl.'))).toBe(true));
     await userEvent.click(screen.getByRole('button', { name: 'Simpan' }));
@@ -145,7 +146,7 @@ describe('KPI kustom', () => {
     await userEvent.clear(screen.getByLabelText('Satuan (opsional)'));
     await userEvent.click(screen.getByRole('button', { name: 'Simpan' }));
     await waitFor(() => expect(calls.filter((c) => c.method === 'POST').at(-1)?.body).toEqual({
-      label: 'Lebar jalan', layerSlug: 'jalan-kabupaten', measure: 'sum', sumField: 'lebar_m', byField: 'kondisi', whereField: null, whereEq: null, unit: null, warn: true, chart: 'bar',
+      label: 'Lebar jalan', layerSlug: 'jalan-kabupaten', measure: 'sum', sumField: 'lebar_m', byField: 'kondisi', by2Field: null, chart2: 'line', whereField: null, whereEq: null, unit: null, warn: true, chart: 'bar',
       sort: 'asc', topN: 5,
     }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
@@ -154,7 +155,7 @@ describe('KPI kustom', () => {
   it('gagal hapus KPI: galat tampil, kartu tetap', async () => {
     mockApi({ 'GET /auth/me': { user: user('editor') }, 'GET /layers': LAYERS, ...BASE, 'GET /kpi': [KPIS[3]], 'DELETE /kpi/4': reply(500, { error: 'Gagal hapus' }) });
     renderAt('/');
-    await userEvent.click(await screen.findByRole('button', { name: 'Edit ringkasan' }, { timeout: 10000 }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit Ringkasan' }, { timeout: 10000 }));
     await userEvent.click(screen.getByRole('button', { name: 'Hapus Yatim' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Ya, hapus' }));
     expect(await screen.findByText('Gagal hapus')).toBeInTheDocument();
@@ -164,8 +165,8 @@ describe('KPI kustom', () => {
   it('viewer: tanpa tombol Edit ringkasan, tanpa kartu tambah', async () => {
     mockApi({ 'GET /auth/me': { user: user('viewer') }, 'GET /layers': LAYERS, ...BASE, 'GET /kpi': [] });
     renderAt('/');
-    await screen.findByRole('link', { name: 'Jumlah penduduk miskin' }, { timeout: 10000 });
-    expect(screen.queryByRole('button', { name: 'Edit ringkasan' })).not.toBeInTheDocument();
+    await screen.findByRole('link', { name: 'Jumlah Penduduk Miskin' }, { timeout: 10000 });
+    expect(screen.queryByRole('button', { name: 'Edit Ringkasan' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Tambah KPI/ })).not.toBeInTheDocument();
   });
 
@@ -176,20 +177,20 @@ describe('KPI kustom', () => {
       'PUT /kpi/layout': (r: { body: unknown }) => r.body,
     });
     renderAt('/');
-    const hero = await screen.findByRole('link', { name: 'Jumlah penduduk miskin' }, { timeout: 10000 });
+    const hero = await screen.findByRole('link', { name: 'Jumlah Penduduk Miskin' }, { timeout: 10000 });
     // Tren disimpan paling depan: mendahului hero di DOM. Pola ruang tersembunyi di luar mode edit.
-    await waitFor(() => expect(screen.getByText('Tren tahunan').compareDocumentPosition(hero) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy());
-    expect(screen.queryByText('Rencana pola ruang')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Edit ringkasan' }));
-    expect(screen.getAllByText('Rencana pola ruang').length).toBeGreaterThan(0);
-    await userEvent.click(screen.getByRole('button', { name: 'Geser Tren tahunan ke belakang' }));
+    await waitFor(() => expect(screen.getByText('Tren Tahunan').compareDocumentPosition(hero) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy());
+    expect(screen.queryByText('Rencana Pola Ruang')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Edit Ringkasan' }));
+    expect(screen.getAllByText('Rencana Pola Ruang').length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Geser Tren Tahunan ke Belakang' }));
     type Put = { cards: { key: string; hidden: boolean }[] };
     const puts = () => calls.filter((c) => c.method === 'PUT').map((c) => c.body as Put);
     // Seluruh susunan dikirim (kartu bawaan ikut tercatat), dua teratas tertukar.
     await waitFor(() => expect(puts()[0]?.cards.slice(0, 2).map((c) => c.key)).toEqual(['pola', 'trend']));
     // 9 kartu bawaan + kartu keterpaparan bahaya.
     expect(puts()[0]!.cards).toHaveLength(10);
-    await userEvent.click(screen.getByRole('button', { name: 'Tampilkan Rencana pola ruang' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Tampilkan Rencana Pola Ruang' }));
     await waitFor(() => expect(puts().at(-1)?.cards.find((c) => c.key === 'pola')?.hidden).toBe(false));
   }, 30_000);
 });
@@ -215,7 +216,7 @@ describe('KPI kustom: min/maks, urutan, duplikat, seret field ke rak', () => {
     expect(card('Daya maks').textContent).toContain('90');
     // Urut abjad numerik: B2 sebelum B10.
     expect(card('Daya maks').textContent!.indexOf('B2')).toBeLessThan(card('Daya maks').textContent!.indexOf('B10'));
-    await userEvent.click(screen.getByRole('button', { name: 'Edit ringkasan' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Edit Ringkasan' }));
     await userEvent.click(screen.getByRole('button', { name: 'Duplikat Daya min' }));
     await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({ label: 'Daya min (salinan)', measure: 'min' }));
     expect(calls.find((c) => c.method === 'POST')!.body).not.toHaveProperty('id');
@@ -224,16 +225,17 @@ describe('KPI kustom: min/maks, urutan, duplikat, seret field ke rak', () => {
     expect(within(card('Tanpa atribut')).getByText('0')).toBeInTheDocument();
     // Dialog resep SUM tanpa atribut: rak Nilai kosong (petunjuk seret).
     await userEvent.click(screen.getByRole('button', { name: 'Ubah Tanpa atribut' }));
-    expect(within(screen.getByText('Nilai', { selector: 'span' }).nextElementSibling as HTMLElement).getByText('Seret atau klik field ke sini')).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: 'Ubah Data, Grafik & Tata Letak' }));
+    expect(within(screen.getByText('Nilai', { selector: 'span' }).nextElementSibling as HTMLElement).getByText('Seret atau Klik Field ke Sini')).toBeInTheDocument();
   }, 30_000);
 
   it('builder: chip diseret ke rak (jenis salah & data asing diabaikan); Ctrl+Z/Y tanpa riwayat aman', async () => {
     mockApi({ 'GET /auth/me': { user: user('editor') }, 'GET /layers': LAYERS, ...BASE, 'GET /kpi': [], 'GET /stats/layers/jalan-kabupaten': [{ key: 'Jl. A', count: 1, lengthKm: 1, areaHa: 0 }] });
     renderAt('/');
-    await userEvent.click(await screen.findByRole('button', { name: 'Edit ringkasan' }, { timeout: 10000 }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit Ringkasan' }, { timeout: 10000 }));
     await userEvent.click(screen.getByRole('button', { name: /Tambah KPI/ }));
     await userEvent.keyboard('{Control>}z{/Control}{Control>}y{/Control}'); // riwayat kosong: tak berubah
-    await choose('Layer data', 'Kondisi Jalan 2026');
+    await choose('Layer Data', 'Kondisi Jalan 2026');
     const store: Record<string, string> = {};
     const dt = { setData: (k: string, v: string) => { store[k] = v; }, getData: (k: string) => store[k] ?? '', effectAllowed: '' };
     const shelf = (name: string) => screen.getByText(name, { selector: 'span' }).nextElementSibling as HTMLElement;
@@ -242,38 +244,36 @@ describe('KPI kustom: min/maks, urutan, duplikat, seret field ke rak', () => {
     fireEvent.dragOver(shelf('Rincian'), { dataTransfer: dt });
     fireEvent.dragLeave(shelf('Rincian'));
     fireEvent.drop(shelf('Rincian'), { dataTransfer: dt });
-    expect(screen.queryByRole('radio', { name: 'Terkecil dulu' })).toBeNull();
+    expect(screen.queryByRole('radio', { name: 'Terkecil Dulu' })).toBeNull();
     // Data bukan chip: diabaikan tanpa galat.
     fireEvent.drop(shelf('Rincian'), { dataTransfer: { getData: () => 'bukan json' } });
     // Chip dimensi ke Rincian; ukuran ke Nilai; dimensi ke Filter.
     fireEvent.dragStart(screen.getByRole('button', { name: 'Kondisi' }), { dataTransfer: dt });
     fireEvent.drop(shelf('Rincian'), { dataTransfer: dt });
-    expect(await screen.findByRole('radio', { name: 'Terkecil dulu' })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('radio', { name: 'Abjad / angka' }));
+    expect(await screen.findByRole('radio', { name: 'Terkecil Dulu' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('radio', { name: 'Abjad / Angka' }));
     fireEvent.dragStart(screen.getByRole('button', { name: 'Lebar' }), { dataTransfer: dt });
     fireEvent.drop(shelf('Nilai'), { dataTransfer: dt });
     expect(screen.getByText('SUM(Lebar)')).toBeInTheDocument();
     // Donut lalu agregasi bukan porsi (MAX): grafik kembali Otomatis. Chip atribut lagi = agregasi tetap MAX.
     await userEvent.click(screen.getByRole('radio', { name: 'Donut' }));
-    await userEvent.click(screen.getByRole('radio', { name: 'Nilai terbesar atribut' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Nilai Terbesar Atribut' }));
     expect(screen.getByText('MAX(Lebar)')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Otomatis' })).toBeChecked();
-    await userEvent.click(screen.getByRole('radio', { name: 'Jumlah nilai atribut' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Jumlah Nilai Atribut' }));
     await userEvent.click(screen.getByRole('button', { name: 'Lebar' }));
     expect(screen.getByText('SUM(Lebar)')).toBeInTheDocument();
-    await userEvent.selectOptions(screen.getByLabelText('Tampilkan'), '5');
-    await userEvent.selectOptions(screen.getByLabelText('Tampilkan'), '');
+    await choose('Tampilkan', TOP5);
+    await choose('Tampilkan', TOP_ALL);
     fireEvent.dragStart(screen.getByRole('button', { name: 'Nama Ruas' }), { dataTransfer: dt });
     fireEvent.drop(shelf('Filter'), { dataTransfer: dt });
-    await screen.findByRole('option', { name: 'Jl. A' });
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Nilai filter' }), 'Jl. A');
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Nilai filter' }), '');
+    await choose('Nilai Filter', 'Jl. A');
     await userEvent.click(screen.getByRole('button', { name: 'Kosongkan Rincian' }));
-    expect(screen.queryByRole('radio', { name: 'Terkecil dulu' })).toBeNull();
+    expect(screen.queryByRole('radio', { name: 'Terkecil Dulu' })).toBeNull();
     // Ukuran bawaan (bukan atribut) lewat chip; field kelas di luar isian (PJU: kondisi) tampil dengan kuncinya.
-    await userEvent.click(screen.getByRole('button', { name: 'Total panjang (km)' }));
-    expect(screen.getByText('Total panjang (km)', { selector: 'span' })).toBeInTheDocument();
-    await choose('Layer data', 'PJU');
+    await userEvent.click(screen.getByRole('button', { name: 'Total Panjang (km)' }));
+    expect(screen.getByText('Total Panjang (km)', { selector: 'span' })).toBeInTheDocument();
+    await choose('Layer Data', 'PJU');
     await userEvent.click(screen.getByRole('button', { name: 'kondisi' }));
     expect(screen.getByText('kondisi', { selector: 'span' })).toBeInTheDocument();
   }, 30_000);
@@ -287,15 +287,15 @@ describe('Tata letak Ringkasan: lebar, seret, urungkan/ulangi, gagal simpan', ()
       'PUT /kpi/layout': (r: { body: unknown }) => (fail ? reply(500, { error: 'Gagal simpan' }) : r.body),
     });
     renderAt('/');
-    await userEvent.click(await screen.findByRole('button', { name: 'Edit ringkasan' }, { timeout: 10000 }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit Ringkasan' }, { timeout: 10000 }));
     type Put = { cards: { key: string; span: number }[] };
     const puts = () => calls.filter((c) => c.method === 'PUT').map((c) => c.body as Put);
     const keys = () => puts().at(-1)!.cards.map((c) => c.key);
     await userEvent.keyboard('{Control>}z{/Control}'); // belum ada langkah: tanpa simpan
     expect(puts()).toHaveLength(0);
     // Grip kartu pertama diseret ke sel kartu kedua: dragOver menandai tujuan, dragLeave/dragEnd membersihkan.
-    const grips = screen.getAllByLabelText(/^Seret untuk memindah /);
-    const cell = (i: number) => grips[i]!.closest<HTMLElement>('.flex.flex-col.gap-2')!;
+    const grips = screen.getAllByLabelText(/^Seret untuk memindah /i);
+    const cell = (i: number) => grips[i]!.closest<HTMLElement>('[role="group"]')!;
     const dt = { effectAllowed: '', setData: () => {} };
     fireEvent.dragOver(cell(1)); // belum menyeret: diabaikan
     fireEvent.dragStart(grips[0]!, { dataTransfer: dt });
@@ -315,7 +315,7 @@ describe('Tata letak Ringkasan: lebar, seret, urungkan/ulangi, gagal simpan', ()
     await waitFor(() => expect(puts()).toHaveLength(2));
     expect(puts()[1]!.cards[0]!.span).toBe(6);
     // Urungkan lewat tombol, ulangi lewat Ctrl+Y, urungkan lagi lewat Ctrl+Z; di dalam isian pintasan diabaikan.
-    await userEvent.click(screen.getByRole('button', { name: 'Urungkan tata letak (Ctrl+Z)' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Urungkan Tata Letak (Ctrl+Z)' }));
     await waitFor(() => expect(puts()).toHaveLength(3));
     expect(keys()).toEqual(first);
     await userEvent.keyboard('{Control>}y{/Control}');
@@ -323,24 +323,24 @@ describe('Tata letak Ringkasan: lebar, seret, urungkan/ulangi, gagal simpan', ()
     expect(puts()[3]!.cards[0]!.span).toBe(6);
     await userEvent.keyboard('{Control>}{Shift>}z{/Shift}{/Control}'); // tak ada langkah ulangi: tanpa simpan
     await userEvent.keyboard('z'); // tanpa Ctrl: diabaikan
-    await userEvent.click(screen.getByRole('combobox', { name: 'Cari data di semua layer' }));
+    await userEvent.click(screen.getByRole('combobox', { name: 'Cari Data di Semua Layer' }));
     await userEvent.keyboard('{Control>}z{/Control}');
     await userEvent.click(document.body);
     expect(puts()).toHaveLength(4);
-    await userEvent.click(screen.getByRole('button', { name: 'Ulangi tata letak (Ctrl+Y)' })); // nonaktif
+    await userEvent.click(screen.getByRole('button', { name: 'Ulangi Tata Letak (Ctrl+Y)' })); // nonaktif
     await userEvent.keyboard('{Control>}z{/Control}');
     await waitFor(() => expect(puts()).toHaveLength(5));
     // Ulangi via tombol, lalu urungkan sampai habis (langkah ketiga tak ada: tanpa simpan).
-    await userEvent.click(screen.getByRole('button', { name: 'Ulangi tata letak (Ctrl+Y)' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Ulangi Tata Letak (Ctrl+Y)' }));
     await waitFor(() => expect(puts()).toHaveLength(6));
     // Geser kartu kedua ke depan.
-    await userEvent.click(screen.getAllByRole('button', { name: /ke depan$/ })[1]!);
+    await userEvent.click(screen.getAllByRole('button', { name: /ke depan$/i })[1]!);
     await waitFor(() => expect(puts()).toHaveLength(7));
     // Simpan gagal: susunan kembali ke versi sebelumnya dan galat tampil.
     fail = true;
-    await userEvent.click(screen.getByRole('button', { name: 'Kembalikan tata letak bawaan' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Kembalikan Tata Letak Bawaan' }));
     expect(await screen.findByText('Gagal simpan')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Kembalikan tata letak bawaan' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Kembalikan Tata Letak Bawaan' })).toBeEnabled();
   }, 30_000);
 });
 
@@ -371,10 +371,12 @@ describe('KPI kustom: ukuran kartu dari builder', () => {
         'PUT /kpi/layout': (r: { body: unknown }) => r.body,
       });
       renderAt('/');
-      await userEvent.click(await screen.findByRole('button', { name: 'Edit ringkasan' }, { timeout: 10000 }));
+      await userEvent.click(await screen.findByRole('button', { name: 'Edit Ringkasan' }, { timeout: 10000 }));
       await userEvent.click(screen.getByRole('button', { name: 'Ubah Jumlah sekolah' }));
-      expect(screen.getByRole('radio', { name: /^⅓/ })).toBeChecked(); // lebar bawaan KPI kustom
-      await userEvent.click(screen.getByRole('radio', { name: /^1 / }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Ubah Data, Grafik & Tata Letak' }));
+      expect(screen.getByRole('radio', { name: '4 dari 12 kolom' })).toBeChecked(); // lebar bawaan KPI kustom
+      expect(screen.getByRole('slider', { name: 'Lebar' })).toHaveAttribute('aria-valuenow', '4');
+      await userEvent.click(screen.getByRole('radio', { name: '12 dari 12 kolom' }));
       await userEvent.click(screen.getByRole('button', { name: 'Simpan' }));
       await waitFor(() => expect(calls.find((c) => c.method === 'PUT' && c.url === '/kpi/layout')?.body)
         .toEqual({ cards: expect.arrayContaining([{ key: 'kpi:2', span: 12, hidden: false }]) }));

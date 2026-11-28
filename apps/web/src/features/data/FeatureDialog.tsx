@@ -6,7 +6,10 @@ import { Map, MapGeoJSON, MapMarker, MarkerContent, useMap } from '@/components/
 import { endpoints } from '@/lib/api';
 import { addVertex, type DrawProblem } from '@/lib/draw';
 import { parseGeometryText, toWkt, WKT_EXAMPLE } from '@/lib/geometry';
-import { KULON_PROGO_CENTER } from '@/lib/layer-style';
+import { activeFields, KULON_PROGO_CENTER } from '@/lib/layer-style';
+import { DateInput } from '@/components/common/DateInput';
+import { INPUT_TYPE, isNumeric, parseRaw } from '@/lib/field-types';
+import { ColorField } from '@/components/common/ColorField';
 import type { Layer, MediaItem, MediaMeta, Props } from '@/lib/types';
 import { hasDocs, URGENCIES, urgencyOf, type Urgency } from '@/lib/urgency';
 import { useSettings } from '@/lib/settings';
@@ -127,11 +130,11 @@ export function FeatureDialog({ layer, featureId, readOnly, onClose, onSaved, dr
   const save = useMutation({
     mutationFn: async (form: FormData) => {
       const properties: Props = {};
-      for (const f of layer.fields) {
+      for (const f of activeFields(layer)) {
         // Field tanpa input (mis. kondisi ruas SK yang terkunci) tidak dikirim, bukan dikirim sebagai teks "null".
         if (!form.has(f.key)) continue;
         const raw = String(form.get(f.key)).trim();
-        properties[f.key] = raw === '' ? null : f.type === 'number' ? Number(raw) : raw;
+        properties[f.key] = parseRaw(f.type, raw);
       }
       // Geometri dikirim hanya bila diisi/diubah; teks tak valid ditolak dengan alasan yang jelas.
       const changed = text.trim() !== initialWkt.trim();
@@ -218,11 +221,11 @@ export function FeatureDialog({ layer, featureId, readOnly, onClose, onSaved, dr
         ) : (
           <form onSubmit={submit} className="flex flex-col gap-5">
             <fieldset disabled={readOnly} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {layer.fields.map((f) => {
+              {activeFields(layer).map((f) => {
                 const value = current?.properties[f.key];
                 const def = value === null || value === undefined ? '' : String(value);
                 // Select/NumberField HeroUI menambah tanda * sendiri bila isRequired; teks biasa diberi tanda manual.
-                const label = <Label htmlFor={f.key}>{f.label}{f.required && f.type === 'text' && <span className="text-accent"> *</span>}</Label>;
+                const label = <Label htmlFor={f.key}>{f.label}{f.required && !['select', 'boolean', 'integer', 'number'].includes(f.type) && <span className="text-accent"> *</span>}</Label>;
                 // Kondisi ruas SK dihitung dari tabel survei (API ruas_props): tampil terkunci, tidak diisi tangan.
                 const derived = layer.slug === 'jalan-kabupaten' && f.key === 'kondisi';
                 if (f.type === 'select') return (
@@ -235,8 +238,33 @@ export function FeatureDialog({ layer, featureId, readOnly, onClose, onSaved, dr
                     </Select.Popover>
                   </Select>
                 );
-                if (f.type === 'number') return (
-                  <NumberField key={f.key} name={f.key} isRequired={f.required} isDisabled={readOnly} defaultValue={def === '' ? undefined : Number(def)} formatOptions={{ useGrouping: false, maximumFractionDigits: 7 }} className="flex flex-col gap-2">
+                // Ya/Tidak: dropdown yang sama dengan Pilihan (nilai form "true"/"false" → boolean saat simpan).
+                if (f.type === 'boolean') return (
+                  <Select key={f.key} name={f.key} isRequired={f.required} isDisabled={readOnly} defaultSelectedKey={def || null} placeholder={t('feat.choose')} className="flex flex-col gap-2">
+                    {label}
+                    <Select.Trigger id={f.key}><Select.Value />{!f.required && !readOnly && <Select.ClearButton />}<Select.Indicator /></Select.Trigger>
+                    <Select.Popover>
+                      <ListBox>
+                        <ListBox.Item id="true" textValue={t('fld.yes')}>{t('fld.yes')}<ListBox.ItemIndicator /></ListBox.Item>
+                        <ListBox.Item id="false" textValue={t('fld.no')}>{t('fld.no')}<ListBox.ItemIndicator /></ListBox.Item>
+                      </ListBox>
+                    </Select.Popover>
+                  </Select>
+                );
+                // Tanggal/waktu: input bawaan browser (kalender & jam), nilai ISO sama dengan yang disimpan.
+                if (f.type === 'date') return (
+                  <DateInput key={f.key} id={f.key} name={f.key} label={f.label} isRequired={f.required} isReadOnly={readOnly} defaultValue={def} />
+                );
+                if (f.type === 'datetime' || f.type === 'time') return (
+                  <div key={f.key} className="flex flex-col gap-2">
+                    {label}
+                    <Input id={f.key} name={f.key} required={f.required} defaultValue={f.type === 'datetime' ? def.slice(0, 16).replace(' ', 'T') : def}
+                      type={f.type === 'datetime' ? 'datetime-local' : f.type} />
+                  </div>
+                );
+                if (isNumeric(f.type)) return (
+                  <NumberField key={f.key} name={f.key} isRequired={f.required} isDisabled={readOnly} defaultValue={def === '' ? undefined : Number(def)}
+                    formatOptions={{ useGrouping: false, maximumFractionDigits: f.type === 'integer' ? 0 : 7 }} className="flex flex-col gap-2">
                     {label}
                     <NumberField.Group><NumberField.Input id={f.key} /></NumberField.Group>
                   </NumberField>
@@ -248,10 +276,15 @@ export function FeatureDialog({ layer, featureId, readOnly, onClose, onSaved, dr
                     <TextArea id={f.key} name={f.key} required={f.required} defaultValue={def} rows={5} className="min-h-28 resize-y" />
                   </div>
                 );
+                // Warna: pemilih warna yang sama dengan seluruh aplikasi (Hex/RGB/HSL/OKLCH), nilai hex lewat input tersembunyi.
+                if (f.type === 'color') return <ColorInput key={f.key} name={f.key} label={f.label} def={def} disabled={readOnly} />;
+                // URL/email: keyboard & validasi bawaan browser. UUID: data baru langsung dapat UUID acak (seperti QGIS UUID generator).
                 return (
                   <div key={f.key} className="flex flex-col gap-2">
                     {label}
-                    <Input id={f.key} name={f.key} required={f.required} defaultValue={def} />
+                    <Input id={f.key} name={f.key} required={f.required} type={INPUT_TYPE[f.type] ?? 'text'}
+                      defaultValue={f.type === 'uuid' && isNew && !def ? crypto.randomUUID() : def}
+                      className={f.type === 'uuid' ? 'font-mono text-xs' : undefined} />
                   </div>
                 );
               })}
@@ -268,11 +301,11 @@ export function FeatureDialog({ layer, featureId, readOnly, onClose, onSaved, dr
               </p>
             )}
 
-            {current && Object.keys(current.properties).some((k) => !layer.fields.some((f) => f.key === k)) && (
+            {current && Object.keys(current.properties).some((k) => !activeFields(layer).some((f) => f.key === k)) && (
               <details className="rounded bg-default px-4 py-2 text-xs">
                 <summary className="cursor-pointer font-medium">{t('feat.extra')}</summary>
                 <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
-                  {Object.entries(current.properties).filter(([k]) => !layer.fields.some((f) => f.key === k)).map(([k, v]) => (
+                  {Object.entries(current.properties).filter(([k]) => !activeFields(layer).some((f) => f.key === k)).map(([k, v]) => (
                     <div key={k} className="contents"><dt className="text-muted">{k}</dt><dd>{String(v ?? '–')}</dd></div>
                   ))}
                 </dl>
@@ -428,9 +461,8 @@ function MediaRow({ img, meta, readOnly, note, onChange, remove }: {
         <Input aria-label={t('doc.caption')} placeholder={t('doc.caption')} defaultValue={meta.caption ?? ''} readOnly={readOnly}
           onBlur={(e) => e.target.value.trim() !== (meta.caption ?? '') && set({ caption: e.target.value.trim() || null })} />
         <div className="flex flex-wrap items-center gap-2">
-          <input type="date" aria-label={t('doc.date')} value={meta.tanggal ?? ''} readOnly={readOnly} max={today()}
-            onChange={(e) => set({ tanggal: e.target.value || null })}
-            className="input h-10 rounded-control border border-field-border bg-field-background px-3 text-sm" />
+          <DateInput hideLabel label={t('doc.date')} value={meta.tanggal ?? null} isReadOnly={readOnly} max={today()} className="w-44"
+            onChange={(v) => set({ tanggal: v })} />
           <Select aria-label={t('doc.urgency')} selectedKey={meta.urgensi} isDisabled={readOnly} placeholder={t('doc.urgency')} className="w-36"
             onSelectionChange={(k) => set({ urgensi: k as Urgency })}>
             <Select.Trigger><Select.Value /><Select.Indicator /></Select.Trigger>
@@ -443,5 +475,21 @@ function MediaRow({ img, meta, readOnly, note, onChange, remove }: {
         {note && <p className="text-xs text-muted">{note}</p>}
       </div>
     </li>
+  );
+}
+
+/** Field bertipe warna di form fitur: ColorField terkendali + input tersembunyi agar ikut FormData. Kosong = tidak diisi. */
+function ColorInput({ name, label, def, disabled }: { name: string; label: string; def: string; disabled?: boolean }) {
+  const [hex, setHex] = useState(def);
+  return (
+    <div className="flex flex-col gap-2 sm:col-span-2">
+      <input type="hidden" name={name} value={hex} />
+      {disabled ? (
+        <>
+          <Label>{label}</Label>
+          <span className="flex items-center gap-2 text-sm">{hex && <span aria-hidden className="size-5 rounded border border-separator" style={{ backgroundColor: hex }} />}{hex || '–'}</span>
+        </>
+      ) : <ColorField id={name} label={label} value={hex || '#2563EB'} onChange={setHex} />}
+    </div>
   );
 }

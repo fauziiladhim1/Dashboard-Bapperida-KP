@@ -4,7 +4,8 @@ export type User = { id: number; name: string; email: string; role: Role;
   /** Password dikelola SEED_ADMIN_PASSWORD di .env (hanya dari GET /auth/me): form ganti password dikunci. */
   passwordManaged?: boolean; status?: 'pending' | 'active' | 'rejected'; createdAt?: string };
 
-export type Field = { key: string; label: string; type: 'text' | 'number' | 'select'; options?: string[]; required?: boolean };
+/** `hidden`: field "dihapus" dari skema (data tetap); `popup: false`: tidak tampil di popup peta. Urutan array = urutan tampil. */
+export type Field = { key: string; label: string; type: import('./field-types').FieldType; options?: string[]; required?: boolean; hidden?: boolean; popup?: boolean };
 
 export type GeomType = 'Point' | 'LineString' | 'Polygon';
 
@@ -15,7 +16,9 @@ export type LayerStyle = { color: string; classField?: string; classes?: Record<
    * Urutan skala kelas ordinal (kondisi, kelas bahaya): legenda mengikuti urutan ini, bukan besaran. Array, bukan urutan
    * kunci `classes`: jsonb Postgres menyusun ulang kunci objek.
    */
-  ordinal?: string[] };
+  ordinal?: string[];
+  /** Baris teks tambahan popup peta; `{field}` diisi atribut fitur. */
+  popupLines?: string[] };
 
 export type Layer = {
   id: number;
@@ -70,13 +73,24 @@ export type KpiMeasure = 'count' | 'length_km' | 'area_ha' | 'sum' | 'avg' | 'mi
 export type CustomKpi = {
   id: number; label: string; layerSlug: string; measure: KpiMeasure; sumField: string | null; byField: string | null;
   whereField: string | null; whereEq: string | null; unit: string | null; warn: boolean;
-  chart: 'auto' | 'number' | 'bar' | 'line' | 'donut';
+  chart: 'auto' | 'number' | 'bar' | 'column' | 'line' | 'donut' | 'treemap' | 'table';
   /** Urutan kategori rincian (terbesar, terkecil, abjad) dan batas N kategori teratas (null = bawaan kartu). */
   sort: 'desc' | 'asc' | 'label'; topN: number | null; sortOrder: number;
+  /** Grafik kedua (format kartu Penduduk Miskin): rincian lain, mis. per tahun, sebagai garis/batang. */
+  by2Field: string | null; chart2: 'line' | 'bar';
 };
 export type CustomKpiInput = Omit<CustomKpi, 'id' | 'sortOrder'>;
 /** Satu kartu di tata letak Ringkasan (GET/PUT /kpi/layout): kunci bawaan atau `kpi:<id>`, lebar dari 12 kolom. */
-export type LayoutCard = { key: string; span: 4 | 5 | 6 | 7 | 8 | 12; hidden: boolean };
+/** Warna chip ikon kartu: token tema atau warna bebas hex #RRGGBB. */
+export type CardTone = 'accent' | 'success' | 'warning' | 'danger' | 'muted' | `#${string}`;
+/** Kartu Ringkasan: posisi/lebar/tersembunyi + tampilan dari "Edit ringkasan" (judul, catatan, ikon `g:<nama>` atau PNG data URL, warna ikon). */
+export type LayoutCard = { key: string; span: 4 | 5 | 6 | 7 | 8 | 12; hidden: boolean; title?: string; note?: string; icon?: string; tone?: CardTone;
+  /** Keterangan bawah kartu: teks pengganti (`foot`) atau disembunyikan (`footOff`). */
+  foot?: string; footOff?: boolean;
+  /** Template baris angka (seperti teks Tableau dengan field): `{nama}` diisi angka terkini dari data. */
+  sub?: string; delta?: string; legend?: string; caption?: string;
+  /** Penempatan isi kartu KPI: berdampingan, bertumpuk, grafik di atas; `auto`/kosong = ikut lebar kartu. */
+  arrange?: 'auto' | 'side' | 'stack' | 'chartFirst' };
 
 export type StatRow = { key: string | null; count: number; lengthKm: number; areaHa: number; value?: number | null };
 

@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
-import { ArrowLeft, ArrowRight, Eye, EyeSlash, Grip } from '@gravity-ui/icons';
+import { ArrowLeft, ArrowRight, Eye, EyeSlash, Grip, Pencil } from '@gravity-ui/icons';
+import { CardStyleProvider, type Slot, type TextSlot } from '@/components/common/card-style';
+import { CardStyleDialog } from './CardStyleDialog';
 import { Button } from '@heroui/react';
 import { Reveal } from '@/components/common/motion';
 import { Tip } from '@/components/common/Tip';
@@ -14,7 +16,11 @@ type Span = LayoutCard['span'];
 /** Kartu Ringkasan: kunci tata letak, nama (aksesibilitas toolbar), lebar bawaan, isi. */
 export type BoardEntry = { key: string; label: string; span: Span; node: ReactNode;
   /** Aksi isi kartu (mis. ubah/duplikat/hapus KPI) di ujung toolbar tata letak: satu toolbar per objek seperti dasbor Tableau. */
-  actions?: ReactNode };
+  actions?: ReactNode;
+  /** Baris angka kartu yang bisa diedit (template + field angka terkini), untuk dialog Tampilan kartu. */
+  texts?: Partial<Record<Slot, TextSlot>>;
+  /** Buka builder data, grafik & tata letak (KPI kustom, atau kartu bawaan yang bisa jadi resep); tombolnya di dialog edit. */
+  onRecipe?: () => void };
 
 /** Lebar di grid 12 kolom desktop; di tablet kartu < 12 jadi setengah lebar, penuh = 2 kolom. Kelas literal agar ikut build Tailwind. */
 const SPAN: Record<Span, string> = {
@@ -83,6 +89,8 @@ export function Board({ entries, cards, editing, onChange, tail }: {
   const t = useT();
   const [drag, setDrag] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
+  // Kartu yang sedang diubah tampilannya (judul, catatan, ikon, warna).
+  const [styling, setStyling] = useState<string | null>(null);
   const layout = arrange(cards, entries);
   const byKey = new Map(entries.map((e) => [e.key, e]));
   const move = (key: string, to: number) => {
@@ -111,43 +119,59 @@ export function Board({ entries, cards, editing, onChange, tail }: {
         const e = byKey.get(c.key)!;
         return (
           <Reveal key={c.key} index={i} className={cn(SPAN[c.span], fillRow.has(c.key) && 'sm:max-lg:col-span-2', '[&>*]:h-full')}>
-          {/* Sasaran jatuh = seluruh sel; garis aksen menandai posisi tujuan saat menyeret. */}
-          <div className={cn('flex flex-col gap-2', editing && over === c.key && drag !== c.key && 'rounded-2xl outline-2 outline-offset-4 outline-accent')}
+          {/* Sasaran jatuh = seluruh sel. Mode edit ala software editing: kartu bergaris seleksi putus-putus, toolbar
+              mengambang di pojok kanan atas (muncul saat diarahkan/fokus), tanpa baris header judul di atas kartu. */}
+          <div role={editing ? 'group' : undefined} aria-label={editing ? c.title || e.label : undefined}
+            className={cn('group/card relative flex flex-col', editing && 'rounded-[20px] outline-1 outline-offset-4 outline-dashed outline-separator transition-[outline-color] hover:outline-accent/60 focus-within:outline-accent/60',
+              editing && over === c.key && drag !== c.key && 'outline-2 outline-solid outline-accent')}
             onDragOver={editing ? (ev) => { if (drag) { ev.preventDefault(); setOver(c.key); } } : undefined}
             onDragLeave={editing ? () => setOver((o) => (o === c.key ? null : o)) : undefined}
             onDrop={editing ? (ev) => { ev.preventDefault(); if (drag) move(drag, layout.findIndex((x) => x.key === c.key)); setDrag(null); setOver(null); } : undefined}>
+            {editing && c.hidden && (
+              <span className="absolute top-3 left-3 z-10 rounded-md bg-surface px-2 py-1 text-xs text-muted shadow-card">{t('lay.hidden')}</span>
+            )}
             {editing && (
-              // Inden toolbar (16px + tombol 28px) menaruh ikon seret segaris dengan isi kartu (padding 24px).
-              <div className="flex items-center gap-1 rounded-xl border border-dashed border-separator bg-surface px-4 py-1 text-xs">
+              <div className="absolute -top-4 right-4 z-10 flex items-center gap-0.5 rounded-xl bg-surface p-1 text-xs shadow-float opacity-0 transition-opacity group-hover/card:opacity-100 group-focus-within/card:opacity-100 [@media(hover:none)]:opacity-100 dark:ring-1 dark:ring-white/10">
                 <span draggable onDragStart={(ev) => { ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', c.key); setDrag(c.key); }}
                   onDragEnd={() => { setDrag(null); setOver(null); }} aria-label={t('lay.move', { card: e.label })} title={t('lay.move', { card: e.label })}
                   className="grid size-7 cursor-grab place-items-center rounded-md text-muted hover:bg-default active:cursor-grabbing">
                   <Grip className="size-4" aria-hidden />
                 </span>
-                <span title={e.label} className="min-w-0 flex-1 truncate font-medium text-heading">{e.label}{c.hidden && <span className="ml-1.5 font-normal text-muted">({t('lay.hidden')})</span>}</span>
                 <ToolBtn label={t('lay.left', { card: e.label })} disabled={i === 0} onPress={() => move(c.key, i - 1)}><ArrowLeft className="size-3.5 max-sm:rotate-90" /></ToolBtn>
                 <ToolBtn label={t('lay.right', { card: e.label })} disabled={i === shown.length - 1} onPress={() => move(c.key, i + 1)}><ArrowRight className="size-3.5 max-sm:rotate-90" /></ToolBtn>
                 <div role="group" aria-label={t('lay.width', { card: e.label })} className="hidden rounded-md bg-default p-0.5 lg:flex">
                   {WIDTHS.map((w) => (
                     <button key={w.span} type="button" aria-pressed={c.span === w.span} onClick={() => patch(c.key, { span: w.span })}
-                      className={cn('h-6 min-w-7 rounded px-1.5 tabular-nums', c.span === w.span ? 'bg-surface font-semibold text-heading shadow-sm' : 'text-muted hover:text-heading')}>
+                      className={cn('h-6 min-w-7 rounded px-1.5 tabular-nums', c.span === w.span ? 'bg-surface font-medium text-heading shadow-sm' : 'text-muted hover:text-heading')}>
                       {w.label}
                     </button>
                   ))}
                 </div>
+                <span aria-hidden className="mx-0.5 h-5 w-px bg-separator" />
+                {/* Satu pintu edit per kartu: tampilan, teks, dan (bila ada resep) data, grafik & tata letak. */}
+                <ToolBtn label={`${t('common.edit')} ${e.label}`} onPress={() => setStyling(c.key)}><Pencil className="size-3.5" /></ToolBtn>
                 <ToolBtn label={t(c.hidden ? 'lay.show' : 'lay.hide', { card: e.label })} onPress={() => patch(c.key, { hidden: !c.hidden })}>
                   {c.hidden ? <EyeSlash className="size-3.5" /> : <Eye className="size-3.5" />}
                 </ToolBtn>
-                {e.actions && <div className="flex items-center gap-1 border-l border-separator pl-1">{e.actions}</div>}
+                {e.actions}
               </div>
             )}
             {/* Tanpa kelas `.card`: itu gaya kartu global (border + bayangan) dan akan membingkai kartu dua kali. */}
-            <div className={cn('flex flex-1 flex-col [&>*]:flex-1', editing && c.hidden && 'opacity-40')}>{e.node}</div>
+            <div className={cn('flex flex-1 flex-col [&>*]:flex-1', editing && c.hidden && 'opacity-40')}>
+              <CardStyleProvider value={c}>{e.node}</CardStyleProvider>
+            </div>
           </div>
           </Reveal>
         );
       })}
       {editing && tail}
+      {styling && (() => {
+        const c = layout.find((x) => x.key === styling);
+        const e = byKey.get(styling);
+        return c && e && <CardStyleDialog label={e.label} value={c} texts={e.texts} preview={e.node} span={c.span}
+          onRecipe={e.onRecipe && (() => { setStyling(null); e.onRecipe!(); })} onClose={() => setStyling(null)}
+          onSave={(st) => { onChange(layout.map((x) => (x.key === styling ? { key: x.key, span: x.span, hidden: x.hidden, ...st } : x))); setStyling(null); }} />;
+      })()}
     </div>
   );
 }

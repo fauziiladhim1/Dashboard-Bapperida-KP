@@ -29,8 +29,8 @@ const AUDIT = page([
   { id: '1', action: 'login', entity: 'user', entityId: null, userName: null, ip: '::1', createdAt: '2026-11-01T00:00:00Z' },
 ], 45);
 
-// Nilai terpilih pemilih "Dari tahun" grafik tren (header kartu tanpa subjudul rentang).
-const dari = () => screen.getAllByRole('button', { name: /Dari tahun/ })[0]!;
+// Nilai terpilih pemilih "Dari Tahun" grafik tren (header kartu tanpa subjudul rentang).
+const dari = () => screen.getAllByRole('button', { name: /Dari tahun/i })[0]!;
 
 describe('Pencarian global', () => {
   it('mengelompokkan menu, layer, wilayah, dan data; pilih wilayah membuka peta terfilter', async () => {
@@ -42,7 +42,7 @@ describe('Pencarian global', () => {
       },
     });
     renderAt('/');
-    const box = await screen.findByRole('combobox', { name: 'Cari data di semua layer' }, { timeout: 10000 });
+    const box = await screen.findByRole('combobox', { name: 'Cari Data di Semua Layer' }, { timeout: 10000 });
     await userEvent.type(box, 'wat');
     expect(await screen.findByText('Wilayah', {}, { timeout: 15_000 })).toBeInTheDocument();
     const list = screen.getByRole('listbox');
@@ -61,7 +61,7 @@ describe('Pencarian global', () => {
       'GET /search': { regions: [{ type: 'kalurahan', id: '42', name: 'Bendungan', kecamatan: 'Wates', bbox: [110.1, -7.9, 110.3, -7.7] }], features: [] },
     });
     renderAt('/');
-    await userEvent.type(await screen.findByRole('combobox', { name: 'Cari data di semua layer' }, { timeout: 10000 }), 'ben');
+    await userEvent.type(await screen.findByRole('combobox', { name: 'Cari Data di Semua Layer' }, { timeout: 10000 }), 'ben');
     await userEvent.click(await screen.findByRole('option', { name: /^Bendungan/ }, { timeout: 5000 }));
     // Halaman Peta membaca lalu membersihkan param URL: yang diuji efeknya (detail fitur 42 diminta, tanpa filter kecamatan).
     await waitFor(() => expect(calls.some((c) => c.url.startsWith('/features/42'))).toBe(true), { timeout: 5000 });
@@ -78,10 +78,10 @@ describe('Ringkasan', () => {
     // Kondisi jalan: jumlah ruas SK per kelas (kelas dari tabel survei lewat nama ruas): 1 dari 3 ruas rusak berat, 10 km SK.
     expect(await screen.findByRole('button', { name: /^Rusak Berat133%$/ }, { timeout: 10000 })).toBeInTheDocument();
     expect(screen.getByText(/3 dari 3 ruas$/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Wilayah kelas bahaya tinggi' })).toHaveAttribute('href', '/peta?layer=potensi-bencana');
-    expect(screen.getByRole('link', { name: 'Peta wilayah' })).toHaveAttribute('href', '/peta');
+    expect(screen.getByRole('link', { name: 'Wilayah Kelas Bahaya Tinggi' })).toHaveAttribute('href', '/peta?layer=potensi-bencana');
+    expect(screen.getByRole('link', { name: 'Peta Wilayah' })).toHaveAttribute('href', '/peta');
     // KPI km jalan rusak berat (tabel survei) di kolom kanan atas; wisata tidak lagi jadi KPI.
-    const roadKpi = screen.getByRole('link', { name: 'Jalan kabupaten rusak berat' });
+    const roadKpi = screen.getByRole('link', { name: 'Jalan Kabupaten Rusak Berat' });
     expect(roadKpi).toHaveAttribute('href', '/peta?layer=jalan-kabupaten&tahun=2026');
     expect(within(roadKpi.closest<HTMLElement>('.card')!).getByText('0,7 km')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Destinasi pariwisata' })).not.toBeInTheDocument();
@@ -91,13 +91,13 @@ describe('Ringkasan', () => {
     // Porsi LED hanya di baris rincian (tidak diulang sebagai keterangan KPI).
     expect(screen.queryByText('80% lampu LED')).not.toBeInTheDocument();
     // Rincian PJU: jenis lampu terbanyak dulu, porsi dari total titik.
-    const pjuCard = screen.getByRole('link', { name: 'Titik penerangan jalan umum' }).closest<HTMLElement>('.card')!;
+    const pjuCard = screen.getByRole('link', { name: 'Titik Penerangan Jalan Umum' }).closest<HTMLElement>('.card')!;
     expect(within(pjuCard).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['LED880%', 'SON-T220%']);
-    expect(screen.getByRole('link', { name: /Kelola data/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Kelola data/i })).toBeInTheDocument();
     expect(screen.queryByText('Kesesuaian pola ruang')).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Jumlah penduduk miskin' })).toHaveAttribute('href', '/peta?layer=penduduk-miskin&tahun=2026');
+    expect(screen.getByRole('link', { name: 'Jumlah Penduduk Miskin' })).toHaveAttribute('href', '/peta?layer=penduduk-miskin&tahun=2026');
     expect(screen.getByText(/^\+300 jiwa \(\+\d+%\) dibanding 2025$/)).toBeInTheDocument();
-    expect(screen.getByText('Tren tahunan')).toBeInTheDocument();
+    expect(screen.getByText('Tren Tahunan')).toBeInTheDocument();
     // Rincian dipindah ke halaman Data / Peta / Log.
     expect(screen.queryByText(/^Survei 2025: 2 ruas/)).not.toBeInTheDocument();
     expect(screen.queryByText('Aktivitas terbaru')).not.toBeInTheDocument();
@@ -108,40 +108,40 @@ describe('Ringkasan', () => {
   it('rentang tahun (dropdown) hanya memotong grafik tren: KPI, ruas jalan, URL dan peta tetap', async () => {
     const calls = mockApi({ 'GET /auth/me': { user: user('viewer') }, 'GET /layers': LAYERS, ...STATS });
     renderAt('/');
-    await screen.findByRole('group', { name: 'Rentang tahun' }, { timeout: 10000 });
-    await choose('Dari tahun', '2025');
+    await screen.findByRole('group', { name: 'Rentang Tahun' }, { timeout: 10000 });
+    await choose('Dari Tahun', '2025');
     await waitFor(() => expect(dari()).toHaveTextContent('2025'));
     expect(window.location.search).toBe('');
-    expect(screen.getByRole('link', { name: 'Jumlah penduduk miskin' })).toHaveAttribute('href', '/peta?layer=penduduk-miskin&tahun=2026');
+    expect(screen.getByRole('link', { name: 'Jumlah Penduduk Miskin' })).toHaveAttribute('href', '/peta?layer=penduduk-miskin&tahun=2026');
     expect(calls.filter((c) => c.url.startsWith('/stats/ruas-jalan')).map((c) => c.url)).toEqual(['/stats/ruas-jalan?sampai=2026']);
     expect(screen.getAllByText('2026').length).toBeGreaterThan(0);
-    await userEvent.click(screen.getByRole('button', { name: 'Kembalikan ke seluruh rentang tahun' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Kembalikan ke Seluruh Rentang Tahun' }));
     await waitFor(() => expect(dari()).toHaveTextContent('2024'));
   });
 
   it('tahun global (dropdown) mengatur KPI, ruas jalan, layer bertahun dan tautan peta, rentang grafik tetap', async () => {
     const calls = mockApi({ 'GET /auth/me': { user: user('viewer') }, 'GET /layers': LAYERS.map((l) => (l.slug === 'pju' ? { ...l, year: 2026 } : l)), ...STATS });
     renderAt('/');
-    await waitFor(() => expect(screen.getByRole('link', { name: 'Jumlah penduduk miskin' })).toHaveAttribute('href', '/peta?layer=penduduk-miskin&tahun=2026'), { timeout: 10000 });
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Jumlah Penduduk Miskin' })).toHaveAttribute('href', '/peta?layer=penduduk-miskin&tahun=2026'), { timeout: 10000 });
     await choose('Tahun', '2025');
     await waitFor(() => expect(calls.some((c) => c.url === '/stats/ruas-jalan?sampai=2025')).toBe(true));
     expect(window.location.search).toBe('?tahun=2025');
-    await waitFor(() => expect(screen.getByRole('link', { name: 'Jumlah penduduk miskin' })).toHaveAttribute('href', '/peta?layer=penduduk-miskin&tahun=2025'));
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Jumlah Penduduk Miskin' })).toHaveAttribute('href', '/peta?layer=penduduk-miskin&tahun=2025'));
     expect(screen.getByText(/^-200 jiwa \(-\d+%\) dibanding 2024$/)).toBeInTheDocument();
     // PJU hanya punya versi 2026: di tahun 2025 diberi info belum ada data.
-    expect(screen.getAllByText(/Belum ada data sampai tahun 2025/).length).toBeGreaterThan(0);
-    expect(screen.getByRole('link', { name: /Buka peta/ })).toHaveAttribute('href', '/peta?tahun=2025');
+    expect(screen.getAllByText(/Belum ada data sampai tahun 2025/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole('link', { name: /Buka peta/i })).toHaveAttribute('href', '/peta?tahun=2025');
     expect(dari()).toHaveTextContent('2024');
   });
 
   it('filter kecamatan menyaring statistik dan peta kecil', async () => {
     const calls = mockApi({ 'GET /auth/me': { user: user('viewer') }, 'GET /layers': LAYERS, ...STATS, 'GET /stats/kecamatan': ['Wates', 'Sentolo'] });
     renderAt('/');
-    await choose('Filter kecamatan', 'Sentolo');
+    await choose('Filter Kecamatan', 'Sentolo');
     await waitFor(() => expect(calls.some((c) => c.url === '/stats/layers/pju?kecamatan=Sentolo')).toBe(true));
     expect(window.location.search).toBe('?kec=Sentolo');
     await waitFor(() => expect(fakeMap.addSource.mock.calls.some(([, s]) => String(s.tiles[0]).includes('kecamatan=Sentolo'))).toBe(true));
-    await choose('Filter kecamatan', 'Semua kecamatan');
+    await choose('Filter Kecamatan', 'Semua Kecamatan');
     await waitFor(() => expect(window.location.search).toBe(''));
   });
 
@@ -153,7 +153,7 @@ describe('Ringkasan', () => {
     expect(screen.getAllByText('Belum ada data untuk tahun ini')).toHaveLength(5);
     expect(screen.queryByText(/Unggah Data/)).not.toBeInTheDocument();
     expect(screen.queryByText('Aktivitas terbaru')).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Kelola data/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Kelola data/i })).not.toBeInTheDocument();
   });
 
   it('query gagal: panel menampilkan galat + coba lagi, bukan "belum ada data"', async () => {
@@ -164,8 +164,8 @@ describe('Ringkasan', () => {
     const alert = await screen.findByRole('alert', {}, { timeout: 10000 });
     expect(alert).toHaveTextContent('Gagal memuat data.');
     fail = false;
-    await userEvent.click(within(alert).getByRole('button', { name: 'Coba lagi' }));
-    expect(await screen.findByRole('link', { name: 'Jumlah penduduk miskin' })).toBeInTheDocument();
+    await userEvent.click(within(alert).getByRole('button', { name: 'Coba Lagi' }));
+    expect(await screen.findByRole('link', { name: 'Jumlah Penduduk Miskin' })).toBeInTheDocument();
   });
 
   it('kelas jalan yang disembunyikan tampil sebagai chip filter; footer hanya hak cipta', async () => {
@@ -174,17 +174,17 @@ describe('Ringkasan', () => {
     renderAt('/');
     const footer = await screen.findByRole('contentinfo', {}, { timeout: 10000 });
     expect(footer).toHaveTextContent(/^© \d{4} Bapperida Kabupaten Kulon Progo\. Hak cipta dilindungi\.$/);
-    expect(screen.queryByText(/Sumber data:|bukan penetapan resmi/)).not.toBeInTheDocument();
-    expect(screen.queryByRole('group', { name: 'Filter aktif' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sumber Data:|bukan penetapan resmi/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Filter Aktif' })).not.toBeInTheDocument();
     await userEvent.click(await screen.findByRole('button', { name: /^Rusak Berat/ }));
     await userEvent.click(screen.getByRole('button', { name: /^Baik/ }));
-    const chips = screen.getByRole('group', { name: 'Filter aktif' });
+    const chips = screen.getByRole('group', { name: 'Filter Aktif' });
     expect(within(chips).getByText('Jalan Rusak Berat disembunyikan')).toBeInTheDocument();
-    await userEvent.click(within(chips).getByRole('button', { name: 'Hapus filter Jalan Baik disembunyikan' }));
+    await userEvent.click(within(chips).getByRole('button', { name: 'Hapus Filter Jalan Baik disembunyikan' }));
     expect(screen.getByRole('button', { name: /^Baik/ })).toHaveAttribute('aria-pressed', 'true');
     expect(within(chips).queryByText('Jalan Baik disembunyikan')).not.toBeInTheDocument();
-    await userEvent.click(within(chips).getByRole('button', { name: 'Hapus semua filter' }));
-    expect(screen.queryByRole('group', { name: 'Filter aktif' })).not.toBeInTheDocument();
+    await userEvent.click(within(chips).getByRole('button', { name: 'Hapus Semua Filter' }));
+    expect(screen.queryByRole('group', { name: 'Filter Aktif' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Rusak Berat/ })).toHaveAttribute('aria-pressed', 'true');
   });
 
@@ -202,19 +202,19 @@ describe('Ringkasan', () => {
     mockApi({ 'GET /auth/me': { user: user('viewer') }, 'GET /layers': () => new Promise(() => undefined) });
     renderAt('/');
     // KPI layer menampilkan kerangka saat memuat, bukan angka 0.
-    expect(await screen.findByText('Titik penerangan jalan umum', {}, { timeout: 10000 })).toBeInTheDocument();
+    expect(await screen.findByText('Titik Penerangan Jalan Umum', {}, { timeout: 10000 })).toBeInTheDocument();
     expect(document.querySelectorAll('.skeleton[aria-busy]').length).toBeGreaterThanOrEqual(2);
   });
 });
 
-describe('Log aktivitas', () => {
+describe('Log Aktivitas', () => {
   it('daftar dan paginasi', async () => {
     const calls = mockApi({ 'GET /auth/me': { user: user() }, 'GET /audit': AUDIT });
     renderAt('/log');
     expect(await screen.findByText('menambah fitur #9')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Halaman 3' })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Halaman berikutnya' }));
-    await userEvent.click(await screen.findByRole('button', { name: 'Halaman sebelumnya' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Halaman Berikutnya' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Halaman Sebelumnya' }));
     expect(calls.filter((c) => c.url.startsWith('/audit')).map((c) => c.url)).toContain('/audit?page=2&limit=20');
   });
 
@@ -297,7 +297,7 @@ describe('Peta', () => {
   it('menambah vector layer sesuai tipe geometri dan membersihkannya', async () => {
     mockApi(routes());
     const view = renderAt('/peta');
-    await screen.findByText('Layer peta', {}, { timeout: 5000 });
+    await screen.findByText('Layer Peta', {}, { timeout: 5000 });
     await waitFor(() => expect(fakeMap.addSource).toHaveBeenCalledTimes(2));
     const added = fakeMap.addLayer.mock.calls.map(([l]) => l.id);
     expect(added).toEqual(['fill-batas-administrasi', 'line-batas-administrasi', 'line-jalan-kabupaten']);
@@ -306,12 +306,12 @@ describe('Peta', () => {
     await userEvent.click(await screen.findByRole('switch', { name: 'Tampilkan Penggunaan Lahan' }));
     await userEvent.click(screen.getByRole('switch', { name: 'Tampilkan PJU' }));
     await waitFor(() => expect(fakeMap.addLayer.mock.calls.map(([l]) => l.id)).toEqual(expect.arrayContaining(['fill-penggunaan-lahan', 'circle-pju'])));
-    // Slot layer DB `potensi-bencana` diisi raster InaRISK: satu baris saja, tidak dobel di "Data pendukung".
+    // Slot layer DB `potensi-bencana` diisi raster InaRISK: satu baris saja, tidak dobel di "Data Pendukung".
     expect(screen.getAllByRole('switch', { name: 'Tampilkan Potensi Bencana' })).toHaveLength(1);
     // Jenis bahaya lewat dropdown (popover dikunci ke bawah).
     await userEvent.click(screen.getByRole('switch', { name: 'Tampilkan Potensi Bencana' }));
-    await choose('Jenis bahaya', 'Tanah Longsor');
-    expect(screen.getByRole('button', { name: /Jenis bahaya/ })).toHaveTextContent('Tanah Longsor');
+    await choose('Jenis Bahaya', 'Tanah Longsor');
+    expect(screen.getByRole('button', { name: /Jenis bahaya/i })).toHaveTextContent('Tanah Longsor');
     await userEvent.click(screen.getByRole('switch', { name: 'Tampilkan Potensi Bencana' }));
 
     // Layer turunan dan sumbernya tidak menyala bersamaan (poligon sama tergambar dua kali).
@@ -321,7 +321,7 @@ describe('Peta', () => {
     await waitFor(() => expect(screen.getByRole('switch', { name: 'Tampilkan Kawasan Pertanian' })).not.toBeChecked());
 
     // Opasitas lewat input range bawaan.
-    const slider = screen.getAllByRole('slider', { name: /Transparansi Kondisi Jalan/ })[0]!;
+    const slider = screen.getAllByRole('slider', { name: /Transparansi Kondisi Jalan/i })[0]!;
     fireEvent.change(slider, { target: { value: '90' } });
     // Opacity diubah di tempat (setPaintProperty), layer tidak dibuat ulang.
     await waitFor(() => expect(fakeMap.setPaintProperty).toHaveBeenCalledWith('line-jalan-kabupaten', 'line-opacity', 0.9));
@@ -342,7 +342,7 @@ describe('Peta', () => {
   it('klik fitur membuka popup dengan atribut dan foto, tanpa tombol ubah', async () => {
     mockApi(routes());
     renderAt('/peta');
-    await screen.findByText('Layer peta', {}, { timeout: 5000 });
+    await screen.findByText('Layer Peta', {}, { timeout: 5000 });
     await waitFor(() => expect(fakeMap.handlers.some((h) => h.event === 'click')).toBe(true));
 
     fakeMap.rendered = [];
@@ -366,7 +366,7 @@ describe('Peta', () => {
     expect(within(popup).getAllByText('Urgensi Tinggi').length).toBe(1); // badge kelas sudah tampil: urgensi hanya di foto
     expect(within(popup).getByText('Lubang di bahu jalan')).toBeInTheDocument();
     expect(within(popup).getByText('Foto 1/2')).toBeInTheDocument();
-    await userEvent.click(within(popup).getByRole('button', { name: 'Tampilkan foto 2' }));
+    await userEvent.click(within(popup).getByRole('button', { name: 'Tampilkan Foto 2' }));
     expect(within(popup).getByText('Retak rambut')).toBeInTheDocument();
     expect(within(popup).getByText('Urgensi Rendah')).toBeInTheDocument();
     // Popup hanya baca: tidak ada tombol ubah data (penyuntingan lewat menu Data).
@@ -378,7 +378,7 @@ describe('Peta', () => {
   it('viewer tidak melihat tombol ubah; layer turunan juga tidak', async () => {
     mockApi(routes('viewer'));
     renderAt('/peta');
-    await screen.findByText('Layer peta', {}, { timeout: 5000 });
+    await screen.findByText('Layer Peta', {}, { timeout: 5000 });
     await userEvent.click(await screen.findByRole('switch', { name: 'Tampilkan Kawasan Pertanian' }));
     fakeMap.rendered = [{ id: 10, source: 'src-kawasan-pertanian' }];
     await waitFor(() => expect(fakeMap.addSource).toHaveBeenCalledWith('src-kawasan-pertanian', expect.anything()));
@@ -399,7 +399,7 @@ describe('Peta', () => {
     const kelas = await screen.findAllByRole('checkbox', { name: /Menyala/ });
     await userEvent.click(kelas[0]!);
     await waitFor(() => expect(fakeMap.setFilter).toHaveBeenCalledWith('circle-pju', expect.arrayContaining([['!', ['in', ['coalesce', ['to-string', ['get', 'kondisi']], ''], ['literal', ['Menyala']]]]].flat())));
-    await userEvent.click(screen.getAllByRole('button', { name: 'Tampilkan semua' })[0]!);
+    await userEvent.click(screen.getAllByRole('button', { name: 'Tampilkan Semua' })[0]!);
     await waitFor(() => expect(fakeMap.setFilter).toHaveBeenLastCalledWith('circle-pju', null));
   });
 
@@ -407,28 +407,28 @@ describe('Peta', () => {
     mapState.isLoaded = false;
     mockApi(routes());
     renderAt('/peta');
-    await screen.findByText('Layer peta', {}, { timeout: 5000 });
+    await screen.findByText('Layer Peta', {}, { timeout: 5000 });
     expect(fakeMap.addSource).not.toHaveBeenCalled();
     mapState.isLoaded = true;
 
-    await userEvent.click(screen.getAllByRole('button', { name: 'Mode gelap' })[0]!);
+    await userEvent.click(screen.getAllByRole('button', { name: 'Mode Gelap' })[0]!);
     expect(document.documentElement).toHaveClass('dark');
     expect(localStorage.getItem('theme')).toBe('dark');
-    await userEvent.click(screen.getAllByRole('button', { name: 'Mode terang' })[0]!);
+    await userEvent.click(screen.getAllByRole('button', { name: 'Mode Terang' })[0]!);
     expect(document.documentElement).toHaveClass('light');
 
-    await choose('Filter kecamatan', 'Wates');
+    await choose('Filter Kecamatan', 'Wates');
     await waitFor(() => expect(fakeMap.addSource.mock.calls.some(([, s]) => String(s.tiles[0]).includes('kecamatan=Wates'))).toBe(true));
-    await choose('Filter kecamatan', 'Semua kecamatan');
+    await choose('Filter Kecamatan', 'Semua Kecamatan');
 
-    await userEvent.click(screen.getByRole('button', { name: /Layer$/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Layer$/ }));
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });
 
   it('layers & kecamatan belum termuat', async () => {
     mockApi({ 'GET /auth/me': { user: user() }, 'GET /layers': () => new Promise(() => undefined), 'GET /stats/kecamatan': () => new Promise(() => undefined) });
     renderAt('/peta');
-    expect(await screen.findByText('Layer peta', {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText('Layer Peta', {}, { timeout: 5000 })).toBeInTheDocument();
   });
 });
 
@@ -437,7 +437,7 @@ describe('Sidebar', () => {
     mockApi({ 'GET /auth/me': { user: user('viewer') }, 'GET /layers': LAYERS, 'GET /stats/kecamatan': [] });
     renderAt('/data');
     const nav = await screen.findByRole('complementary', {}, { timeout: 5000 });
-    expect(within(nav).getByRole('navigation', { name: 'Navigasi utama' })).toBeInTheDocument();
+    expect(within(nav).getByRole('navigation', { name: 'Navigasi Utama' })).toBeInTheDocument();
     expect(within(screen.getByRole('banner')).getByLabelText('Bahasa')).toBeInTheDocument(); // pengaturan pindah ke topbar
     expect(within(nav).queryByText('PJU')).not.toBeInTheDocument();
     expect(within(nav).queryByText('Pengguna')).not.toBeInTheDocument(); // viewer
@@ -489,15 +489,15 @@ describe('Menu Data > Tabel ruas jalan', () => {
       'GET /tables/ruas-jalan': [row], 'PATCH /tables/ruas-jalan/7': { id: 7 }, 'POST /tables/ruas-jalan': { ...row, id: 8 }, 'DELETE /tables/ruas-jalan/7': { status: 204 },
     });
     renderAt('/data');
-    await choose('Pilih layer', 'Rekap Ruas Jalan');
+    await choose('Pilih Layer', 'Rekap Ruas Jalan');
     const cell = await screen.findByDisplayValue('Bendo - Bolon', {}, { timeout: 5000 });
     expect(screen.getByText(/^3,4\d* km$/)).toBeInTheDocument(); // total kondisi (tanpa kolom perbaikan)
 
-    const berat = screen.getAllByRole('spinbutton', { name: 'Rusak berat (km)' })[0]!;
+    const berat = screen.getAllByRole('spinbutton', { name: 'Rusak Berat (km)' })[0]!;
     // "Tidak": isi sel kembali ke nilai tersimpan, tanpa PATCH.
     await userEvent.clear(berat);
     await userEvent.type(berat, '0.9{Enter}');
-    expect(await screen.findByText('Ubah Rusak berat (km) dari 0 menjadi 0,9?')).toBeInTheDocument();
+    expect(await screen.findByText('Ubah Rusak Berat (km) dari 0 menjadi 0,9?')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Tidak' }));
     await waitFor(() => expect(berat).toHaveValue(0));
     expect(calls.some((c) => c.method === 'PATCH')).toBe(false);
@@ -510,10 +510,10 @@ describe('Menu Data > Tabel ruas jalan', () => {
     await userEvent.tab();
     expect(calls.filter((c) => c.method === 'PATCH')).toHaveLength(1);
 
-    await userEvent.click(screen.getByRole('button', { name: /Tambah ruas/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Tambah ruas/i }));
     const save = screen.getByRole('button', { name: 'Simpan' });
     expect(save).toBeDisabled(); // kecamatan/wilayah/ruas wajib
-    const texts = screen.getAllByRole('textbox', { name: 'Ruas jalan' });
+    const texts = screen.getAllByRole('textbox', { name: 'Ruas Jalan' });
     await userEvent.type(texts.at(-1)!, 'Baru - Ruas');
     await userEvent.type(screen.getAllByRole('textbox', { name: 'Kecamatan' }).at(-1)!, 'Kalibawang');
     await userEvent.type(screen.getAllByRole('textbox', { name: 'Wilayah' }).at(-1)!, 'Kalibawang II');
@@ -537,7 +537,7 @@ describe('Menu Data > Tabel ruas jalan', () => {
     const ruas = screen.getByDisplayValue('Bendo - Bolon');
     fireEvent.change(ruas, { target: { value: 'Bendo - Baru' } });
     fireEvent.blur(ruas);
-    expect(await screen.findByText('Ubah Ruas jalan dari "Bendo - Bolon" menjadi "Bendo - Baru"?')).toBeInTheDocument();
+    expect(await screen.findByText('Ubah Ruas Jalan dari "Bendo - Bolon" menjadi "Bendo - Baru"?')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Ya, simpan' }));
     expect(await screen.findByText('Server sibuk')).toBeInTheDocument();
 
@@ -546,7 +546,7 @@ describe('Menu Data > Tabel ruas jalan', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Tidak' })).not.toBeInTheDocument());
     expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
 
-    await userEvent.click(screen.getByRole('button', { name: /Tambah ruas/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Tambah ruas/i }));
     const baik = screen.getAllByRole('spinbutton', { name: 'Baik (km)' }).at(-1)!;
     await userEvent.clear(baik);
     await userEvent.type(baik, '1.5');
@@ -565,7 +565,7 @@ describe('Menu Data > Tabel ruas jalan', () => {
     mockApi({ 'GET /auth/me': { user: user('viewer') }, 'GET /layers': LAYERS, 'GET /stats/kecamatan': [], 'GET /tables/ruas-jalan': [row] });
     renderAt('/data/tabel-ruas-jalan');
     expect(await screen.findByDisplayValue('Bendo - Bolon', {}, { timeout: 5000 })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: /Tambah ruas/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Tambah ruas/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Hapus Bendo - Bolon' })).not.toBeInTheDocument();
   });
 });
@@ -575,7 +575,7 @@ describe('Sidebar & akun', () => {
     mockApi({ 'GET /auth/me': { user: { ...user('superadmin'), passwordManaged: true } }, 'GET /layers': LAYERS });
     renderAt('/akun');
     expect(await screen.findByText(/SEED_ADMIN_PASSWORD/, {}, { timeout: 5000 })).toBeInTheDocument();
-    expect(screen.queryByLabelText('Password lama')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Password Lama')).not.toBeInTheDocument();
   });
 
   it('sidebar bisa diperkecil (diingat), halaman akun menyimpan profil dan menolak password tak sama', async () => {
@@ -585,14 +585,14 @@ describe('Sidebar & akun', () => {
       'PATCH /auth/me': ({ body }: { body: Record<string, string> }) => ({ user: { ...me, ...body } }),
     });
     renderAt('/akun');
-    const name = await screen.findByLabelText('Nama lengkap', {}, { timeout: 5000 });
+    const name = await screen.findByLabelText('Nama Lengkap', {}, { timeout: 5000 });
 
-    const toggle = screen.getByRole('button', { name: 'Perkecil menu' });
+    const toggle = screen.getByRole('button', { name: 'Perkecil Menu' });
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await userEvent.click(toggle);
-    expect(screen.getByRole('button', { name: 'Perbesar menu' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: 'Perbesar Menu' })).toHaveAttribute('aria-expanded', 'false');
     expect(localStorage.getItem('sidebar')).toBe('collapsed');
-    await userEvent.click(screen.getByRole('button', { name: 'Perbesar menu' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Perbesar Menu' }));
 
     await userEvent.clear(name);
     await userEvent.type(name, 'Rina W');
@@ -600,10 +600,10 @@ describe('Sidebar & akun', () => {
     expect(await screen.findByText('Profil tersimpan.')).toBeInTheDocument();
     expect(calls.find((c) => c.method === 'PATCH')?.body).toMatchObject({ name: 'Rina W' });
 
-    await userEvent.type(screen.getByLabelText('Password lama'), 'Lama12345678');
-    await userEvent.type(screen.getByLabelText('Password baru'), 'Baru12345678');
-    await userEvent.type(screen.getByLabelText('Ulangi password baru'), 'Beda12345678');
-    await userEvent.click(screen.getAllByRole('button', { name: 'Ubah password' }).at(-1)!);
+    await userEvent.type(screen.getByLabelText('Password Lama'), 'Lama12345678');
+    await userEvent.type(screen.getByLabelText('Password Baru'), 'Baru12345678');
+    await userEvent.type(screen.getByLabelText('Ulangi Password Baru'), 'Beda12345678');
+    await userEvent.click(screen.getAllByRole('button', { name: 'Ubah Password' }).at(-1)!);
     expect(await screen.findByText('Ulangan password baru tidak sama.')).toBeInTheDocument();
     expect(calls.filter((c) => c.method === 'PATCH')).toHaveLength(1);
   });

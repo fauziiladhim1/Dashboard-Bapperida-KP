@@ -44,7 +44,7 @@ describe('LandCover', () => {
   it('kelompok terurut, kelas >3 diringkas, tanpa kelas & di luar kelompok; arahkan = porsi kelompok', () => {
     const { container } = wrap(<LandCover rows={rows} layer={layer} total={800} />);
     // Baris tabel legenda (tanpa baris judul kolom).
-    const items = screen.getAllByRole('row').slice(1);
+    const items = screen.getAllByRole('row').slice(1, -1); // tanpa baris Total
     expect(items.map((li) => li.querySelector('[title]')!.textContent)).toEqual(['Pertanian', 'Lainnya', 'Tanpa Kelas']);
     expect(items[0]).toHaveTextContent('Sawah irigasi 50%');
     expect(items[0]).toHaveTextContent('+1 kelas lain');
@@ -76,7 +76,7 @@ describe('PolaRuang', () => {
 
   it('arahkan/fokus kotak = angka utama ikut kelas; sisa = "Lainnya" (warna token); tanpa layer = warna netral', () => {
     wrap(<PolaRuang rows={rows} />);
-    const list = screen.getByRole('list', { name: 'Rencana pola ruang' });
+    const list = screen.getByRole('list', { name: 'Rencana Pola Ruang' });
     const tiles = within(list).getAllByRole('listitem');
     expect(tiles).toHaveLength(8); // 7 kelas + Lainnya
     expect(tiles.at(-1)).toHaveAttribute('title', expect.stringMatching(/^Lainnya: /));
@@ -96,10 +96,10 @@ describe('PolaRuang', () => {
     const q = { matches: true, addEventListener: (_: string, fn: () => void) => { change = fn; }, removeEventListener: vi.fn() };
     const spy = vi.spyOn(window, 'matchMedia').mockReturnValue(q as never);
     const { unmount } = wrap(<PolaRuang rows={rows} />);
-    expect(within(screen.getByRole('list', { name: 'Rencana pola ruang' })).getAllByRole('listitem')).toHaveLength(6);
+    expect(within(screen.getByRole('list', { name: 'Rencana Pola Ruang' })).getAllByRole('listitem')).toHaveLength(6);
     q.matches = false;
     act(() => change());
-    expect(within(screen.getByRole('list', { name: 'Rencana pola ruang' })).getAllByRole('listitem')).toHaveLength(8);
+    expect(within(screen.getByRole('list', { name: 'Rencana Pola Ruang' })).getAllByRole('listitem')).toHaveLength(8);
     unmount();
     expect(q.removeEventListener).toHaveBeenCalled();
     spy.mockRestore();
@@ -148,11 +148,11 @@ describe('TimeSeries: tahun tak sebanding & nilai awal nol', () => {
       { tahun: 2026, miskin: 330, jalanKm: 0, jalanRusakKm: 0, miskinWilayah: { Wates: 130, Pengasih: 110, Galur: 90 } },
     ];
     wrap(<TimeSeries points={points} />);
-    await choose(/Analisis/, 'Kemiskinan per wilayah');
+    await choose(/Analisis/, 'Kemiskinan per Wilayah');
     // Semua wilayah dihitung (bukan 5 teratas). Jumlah yang naik dicek di browser: AnimatedNumber jsdom tetap 0 saat nilai ada sejak mount.
     expect(await screen.findByText(/dari 3 wilayah naik/)).toBeInTheDocument();
     expect(screen.getByText('Jiwa miskin per wilayah, 2025 → 2026')).toBeInTheDocument();
-    expect(within(screen.getByRole('list', { name: 'Data yang ditampilkan' })).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['2025', '2026']);
+    expect(within(screen.getByRole('list', { name: 'Data yang Ditampilkan' })).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['2025', '2026']);
   });
 
   it('seri disorot dengan nilai awal 0: perubahan tanpa persen', async () => {
@@ -161,8 +161,8 @@ describe('TimeSeries: tahun tak sebanding & nilai awal nol', () => {
       { tahun: 2024, miskin: 10, jalanKm: 6, jalanRusakKm: 2 },
     ];
     wrap(<TimeSeries points={points} />);
-    await choose(/Analisis/, 'Ruas jalan');
-    fireEvent.mouseEnter(within(screen.getByRole('list', { name: 'Data yang ditampilkan' })).getAllByRole('listitem')[1]!);
+    await choose(/Analisis/, 'Ruas Jalan');
+    fireEvent.mouseEnter(within(screen.getByRole('list', { name: 'Data yang Ditampilkan' })).getAllByRole('listitem')[1]!);
     expect(document.body).toHaveTextContent('2023–2024 (—)');
   });
 });
@@ -171,7 +171,7 @@ describe('TimeSeries: topik PJU, layer, wilayah; sorot & tooltip', () => {
   const sized = () => vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({ x: 0, y: 0, left: 0, top: 0, width: 600, height: 300, right: 600, bottom: 300, toJSON: () => ({}) } as DOMRect);
   const tooltip = () => document.querySelector('.recharts-tooltip-wrapper')?.textContent ?? '';
   const hover = (x = 300) => fireEvent.mouseMove(document.querySelector('.recharts-wrapper')!, { clientX: x, clientY: 150 });
-  const legend = () => within(screen.getByRole('list', { name: 'Data yang ditampilkan' })).getAllByRole('listitem');
+  const legend = () => within(screen.getByRole('list', { name: 'Data yang Ditampilkan' })).getAllByRole('listitem');
   const points: TimePoint[] = [
     { tahun: 2023, miskin: 0, jalanKm: 0, jalanRusakKm: 0, pjuPasang: 4, pjuWatt: 200, pjuLampu: { LED: 3, 'Tidak Tercatat': 1 }, pjuTanpaTahun: 7, layers: { PJU: 5, Sekolah: 2 }, miskinWilayah: { Wates: 0 } },
     { tahun: 2025, miskin: 0, jalanKm: 0, jalanRusakKm: 0, pjuPasang: 6, pjuWatt: 0, pjuLampu: { LED: 5, 'Tidak Tercatat': 1 }, pjuTanpaTahun: 7, layers: { PJU: 8, Sekolah: 3 } },
@@ -181,7 +181,7 @@ describe('TimeSeries: topik PJU, layer, wilayah; sorot & tooltip', () => {
   it('batang tumpuk per jenis lampu: total di tooltip, sorot legenda, catatan tanpa tahun', async () => {
     sized();
     wrap(<TimeSeries points={points} />);
-    await choose(/Analisis/, 'Pemasangan PJU per jenis lampu');
+    await choose(/Analisis/, 'Pemasangan PJU per Jenis Lampu');
     expect(screen.getByText('7 titik PJU tanpa tahun pasang tidak termasuk grafik.')).toBeInTheDocument();
     expect(legend().map((li) => li.textContent)).toEqual(['LED', 'Tidak Tercatat']);
     hover(100);
@@ -196,14 +196,14 @@ describe('TimeSeries: topik PJU, layer, wilayah; sorot & tooltip', () => {
   it('kumulatif (tangga), daya, dan jumlah fitur layer: garis dengan titik, titik aktif saat diarahkan', async () => {
     sized();
     wrap(<TimeSeries points={points} />);
-    await choose(/Analisis/, 'PJU terpasang (kumulatif)');
+    await choose(/Analisis/, 'PJU Terpasang (kumulatif)');
     hover(100);
     await waitFor(() => expect(tooltip()).toMatch(/titik/));
     expect(document.querySelector('.recharts-active-dot')).not.toBeNull();
-    await choose(/Analisis/, 'Daya lampu PJU dipasang');
+    await choose(/Analisis/, 'Daya Lampu PJU Dipasang');
     hover(100);
     await waitFor(() => expect(tooltip()).toContain('W'));
-    await choose(/Analisis/, 'Jumlah fitur layer');
+    await choose(/Analisis/, 'Jumlah Fitur Layer');
     expect(legend().map((li) => li.textContent)).toEqual(['PJU', 'Sekolah']);
     // Penanda titik muncul setelah animasi garis selesai (300 ms).
     await waitFor(() => expect(document.querySelector('.recharts-area-dots circle, .recharts-area-dots rect')).not.toBeNull(), { timeout: 3000 });
@@ -220,27 +220,27 @@ describe('TimeSeries: topik PJU, layer, wilayah; sorot & tooltip', () => {
       // Galur kosong di 2026, Kokap kosong di 2025: dihitung 0 saat diurutkan dan dibandingkan.
       { tahun: 2025, ...w(9000, { Wates: 100, Galur: 70 }) }, { tahun: 2026, ...w(9100, { Wates: 120, Kokap: 60 }) },
     ]} />);
-    await choose(/Analisis/, 'Kemiskinan per wilayah');
+    await choose(/Analisis/, 'Kemiskinan per Wilayah');
     expect(legend().map((li) => li.textContent)).toEqual(['2023', '2024', '2025', '2026']);
     expect(screen.getByText(/2024/, { selector: 'p' })).toBeInTheDocument(); // catatan tak sebanding
     unmount();
     // Angka per wilayah hanya di satu tahun: tak ada dua tahun pembanding, angka utama tidak tampil.
     const r1 = wrap(<TimeSeries points={[{ tahun: 2025, miskin: 300, jalanKm: 0, jalanRusakKm: 0 }, { tahun: 2026, ...w(330, { Wates: 120 }) }]} />);
-    await choose(/Analisis/, 'Kemiskinan per wilayah');
+    await choose(/Analisis/, 'Kemiskinan per Wilayah');
     expect(screen.queryByText(/wilayah naik/)).toBeNull();
     r1.unmount();
     // Ruas jalan dengan tahun menyimpang (penanda berongga) dan tahun tanpa baris (titik kosong).
     const j = (tahun: number, jalanKm: number) => ({ tahun, miskin: 0, jalanKm, jalanRusakKm: 0 });
     const r2 = wrap(<TimeSeries points={[j(2020, 100), j(2021, 10), j(2022, 100), j(2024, 110)]} />);
-    await choose(/Analisis/, 'Ruas jalan');
+    await choose(/Analisis/, 'Ruas Jalan');
     expect(screen.getByText(/2021/, { selector: 'p' })).toBeInTheDocument();
     r2.unmount();
     // PJU tanpa daya & tanpa hitungan "tanpa tahun"; jenis lampu terbanyak (LED) kosong di tahun awal & akhir.
     const pj = (tahun: number, pjuLampu: Record<string, number>) => ({ tahun, miskin: 0, jalanKm: 0, jalanRusakKm: 0, pjuPasang: Object.values(pjuLampu).reduce((a, b) => a + b), pjuLampu });
     wrap(<TimeSeries points={[pj(2023, { Sodium: 1 }), pj(2024, { LED: 5 }), pj(2025, { Sodium: 1 })]} />);
     await userEvent.click(screen.getByRole('button', { name: /Analisis/ }));
-    expect(screen.queryByRole('option', { name: 'Daya lampu PJU dipasang' })).toBeNull();
-    await userEvent.click(screen.getByRole('option', { name: 'Pemasangan PJU per jenis lampu' }));
+    expect(screen.queryByRole('option', { name: 'Daya Lampu PJU Dipasang' })).toBeNull();
+    await userEvent.click(screen.getByRole('option', { name: 'Pemasangan PJU per Jenis Lampu' }));
     expect(screen.queryByText(/tanpa tahun pasang/)).toBeNull();
     expect(legend().map((li) => li.textContent)).toEqual(['LED', 'Sodium']);
   });
@@ -253,13 +253,13 @@ describe('TimeSeries: topik PJU, layer, wilayah; sorot & tooltip', () => {
       { tahun: 2026, miskin: 330, jalanKm: 0, jalanRusakKm: 0, miskinWilayah: { Wates: 90, Galur: 70 } },
     ];
     const { unmount } = wrap(<TimeSeries points={pw} />);
-    await choose(/Analisis/, 'Kemiskinan per wilayah');
+    await choose(/Analisis/, 'Kemiskinan per Wilayah');
     expect(await screen.findByText(/dari 2 wilayah naik/)).toBeInTheDocument();
     hover();
     await waitFor(() => expect(tooltip()).toMatch(/jiwa/));
     unmount();
     wrap(<TimeSeries points={pw} retry={retry} />);
-    await userEvent.click(screen.getByRole('button', { name: /Coba lagi/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Coba lagi/i }));
     expect(retry).toHaveBeenCalled();
   });
 });
@@ -305,12 +305,12 @@ describe('Ringkasan: kemiskinan per wilayah, pembanding survei & layer', () => {
     expect(await screen.findByText('Sentolo', {}, { timeout: 10000 })).toBeInTheDocument();
     expect(screen.getByText(/-500 jiwa \(-\d+%\) dibanding 2025/)).toBeInTheDocument();
     expect(screen.getAllByText(/2024/).length).toBeGreaterThan(0);
-    const road = screen.getByRole('link', { name: 'Jalan kabupaten rusak berat' }).closest<HTMLElement>('.card')!;
+    const road = screen.getByRole('link', { name: 'Jalan Kabupaten Rusak Berat' }).closest<HTMLElement>('.card')!;
     expect(within(road).getByRole('button', { name: /^Rusak Berat360%$/ })).toBeInTheDocument();
     expect(within(road).getByText('1,6 km')).toBeInTheDocument();
     expect(await within(road).findByText(/\+0,6 km dibanding 2024/)).toBeInTheDocument();
     expect(within(road).getByText(/^Kemantapan 56%, /)).toBeInTheDocument();
-    const pju = screen.getByRole('link', { name: 'Titik penerangan jalan umum' }).closest<HTMLElement>('.card')!;
+    const pju = screen.getByRole('link', { name: 'Titik Penerangan Jalan Umum' }).closest<HTMLElement>('.card')!;
     expect(within(pju).getByText(/\+3 dibanding 2025/)).toBeInTheDocument();
   });
 });

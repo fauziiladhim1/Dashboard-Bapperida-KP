@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { Button, Input, Label, ListBox, Radio, RadioGroup, Select, TextArea, type Key } from '@heroui/react';
+import { DateInput } from '@/components/common/DateInput';
 import { AppModal } from '@/components/common/AppModal';
 import { ErrorAlert } from '@/components/common/ErrorAlert';
 import { UrgencyBadge } from '@/components/common/UrgencyBadge';
@@ -71,9 +72,8 @@ function DecisionForm({ f, layer, subject, onClose, onSaved, settings }: Props &
         <Button type="submit" form="decision-form" isPending={save.isPending}>{t('decision.submit')}</Button>
       </>}>
       <form id="decision-form" onSubmit={submit} className="flex flex-col gap-6">
-        {/* Ringkasan fitur yang dibahas: nama (baris penuh), lalu kondisi (dasar urgensi), urgensi, dan kapan terakhir diubah. */}
         {/* Ringkasan fitur: nama (baris penuh), kondisi, urgensi efektif (ikut pilihan di bawah), terakhir diubah. */}
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl bg-default/50 p-4 sm:grid-cols-3">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border border-separator p-4 sm:grid-cols-3">
           <div className="col-span-2 min-w-0 sm:col-span-3">
             <dt className="text-xs text-muted">{t('decision.subject')}</dt>
             <dd className="mt-1 truncate text-base font-medium text-heading" title={subject}>{subject}</dd>
@@ -82,12 +82,12 @@ function DecisionForm({ f, layer, subject, onClose, onSaved, settings }: Props &
           {hasDocs(layer) && (
             <div className="min-w-0">
               <dt className="text-xs text-muted">{t('decision.condition')}</dt>
-              <dd className="mt-1 text-sm font-medium text-heading">{str(p.kondisi) || '—'}</dd>
+              <dd className="mt-1 text-sm text-heading">{str(p.kondisi) || '—'}</dd>
             </div>
           )}
           <div className="min-w-0">
             <dt className="text-xs text-muted">{t('urg.label')}</dt>
-            <dd className="mt-1">{urgency ? <UrgencyBadge short value={urgency} className="px-2.5 py-1 text-xs whitespace-nowrap" /> : <span className="text-sm text-muted">{t('urg.none')}</span>}</dd>
+            <dd className="mt-1">{urgency ? <UrgencyBadge short value={urgency} className="text-sm" /> : <span className="text-sm text-muted">{t('urg.none')}</span>}</dd>
           </div>
           <div className="min-w-0">
             <dt className="text-xs text-muted">{t('decision.lastUpdate')}</dt>
@@ -95,9 +95,9 @@ function DecisionForm({ f, layer, subject, onClose, onSaved, settings }: Props &
           </div>
         </dl>
 
-        {/* Hierarki: judul dialog > judul bagian (semibold) > label isian > teks bantu (xs, redup). */}
+        {/* Hierarki: judul dialog > judul bagian (overline xs, redup, kapital) > label isian (medium) > teks bantu (xs, redup). */}
         <section aria-labelledby="decision-assess" className="flex flex-col gap-4">
-          <h3 id="decision-assess" className="text-sm font-semibold text-heading">{t('decision.assess')}</h3>
+          <h3 id="decision-assess" className="section-title">{t('decision.assess')}</h3>
           <Select selectedKey={urg} onSelectionChange={(k: Key | null) => k !== null && setUrg(String(k) as Urgency | 'auto')} className="flex flex-col gap-2 sm:max-w-sm">
             <Label>{t('urg.label')}</Label>
             <Select.Trigger className="w-full"><Select.Value /><Select.Indicator /></Select.Trigger>
@@ -119,7 +119,7 @@ function DecisionForm({ f, layer, subject, onClose, onSaved, settings }: Props &
                     <Radio.Control className="mt-0.5"><Radio.Indicator /></Radio.Control>
                     <span className="flex flex-col gap-1">
                       <span className="text-sm font-medium text-heading">{k}</span>
-                      <span className="text-xs leading-snug text-muted">{keterangan[lang]}</span>
+                      <span className="text-xs leading-snug font-normal text-muted">{keterangan[lang]}</span>
                     </span>
                   </Radio.Content>
                 </Radio>
@@ -130,7 +130,7 @@ function DecisionForm({ f, layer, subject, onClose, onSaved, settings }: Props &
 
         {jalan && (
           <section aria-labelledby="decision-exec" className="flex flex-col gap-4">
-            <h3 id="decision-exec" className="text-sm font-semibold text-heading">{t('decision.exec')}</h3>
+            <h3 id="decision-exec" className="section-title">{t('decision.exec')}</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="decision-budget">{t('decision.budget')}</Label>
@@ -151,12 +151,9 @@ function DecisionForm({ f, layer, subject, onClose, onSaved, settings }: Props &
         )}
 
         <section aria-labelledby="decision-meeting" className="flex flex-col gap-4">
-        <h3 id="decision-meeting" className="text-sm font-semibold text-heading">{t('decision.meeting')}</h3>
+        <h3 id="decision-meeting" className="section-title">{t('decision.meeting')}</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-[11rem_minmax(0,1fr)]">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="decision-date">{t('decision.date')}</Label>
-            <Input id="decision-date" type="date" max={today()} value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
-          </div>
+          <DateInput id="decision-date" label={t('decision.date')} max={today()} value={tanggal} onChange={(v) => setTanggal(v ?? '')} />
           <div className="flex flex-col gap-2">
             <Label htmlFor="decision-pj">{t('decision.pic')}</Label>
             <Input id="decision-pj" maxLength={120} value={pj} onChange={(e) => setPj(e.target.value)} placeholder={t('decision.picPlaceholder')} />

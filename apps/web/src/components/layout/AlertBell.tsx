@@ -41,7 +41,7 @@ export function AlertBell() {
           </m.span>
           {count > 0 && (
             <m.span key={`n${count}`} aria-hidden initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 22 }}
-              className="absolute top-1 right-1 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] leading-none font-semibold text-white tabular-nums">
+              className="absolute top-1 right-1 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] leading-none font-medium text-white tabular-nums">
               {count > 99 ? '99+' : count}
             </m.span>
           )}
@@ -50,7 +50,7 @@ export function AlertBell() {
       {/* Kolom: judul & catatan bawah tetap, hanya daftar yang digulir (bukan popover + daftar = dua scroll). */}
       <Dropdown.Popover placement="bottom end" className="alert-popover flex w-[22rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden">
         <div className="flex shrink-0 items-baseline justify-between gap-3 px-3 pt-3 pb-2">
-          <p className="text-sm font-semibold text-heading">{t('alert.title')}</p>
+          <p className="text-sm font-medium text-heading">{t('alert.title')}</p>
           {count > 0 && <span className="text-xs text-muted tabular-nums">{t('alert.count', { n: count })}</span>}
         </div>
         {items.length === 0 ? (

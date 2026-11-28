@@ -21,7 +21,7 @@ const routes = (role: 'editor' | 'viewer') => ({
   'GET /layers/jalan-kabupaten/features': page([ROAD]), 'GET /features/1': { ...ROAD, geometry: null, media: [] }, 'GET /decision-funds': ['APBD', 'DAK'],
 });
 const openBell = async (n = 120) => {
-  await userEvent.click(await screen.findByRole('button', { name: `Peringatan tindak lanjut (${n})` }, { timeout: 5000 }));
+  await userEvent.click(await screen.findByRole('button', { name: `Peringatan Tindak Lanjut (${n})` }, { timeout: 5000 }));
   return screen.findByRole('menu');
 };
 
@@ -40,14 +40,14 @@ describe('Lonceng peringatan', () => {
     expect(within(menu).getByText('Ruas Jalan, Ditunda')).toBeInTheDocument();
     await userEvent.click(within(menu).getByRole('menuitem', { name: /Jl. Wates/ }));
 
-    const d = await screen.findByRole('dialog', { name: 'Notulensi & keputusan' });
+    const d = await screen.findByRole('dialog', { name: 'Notulensi & Keputusan' });
     await userEvent.click(within(d).getByRole('radio', { name: /^Selesai/ }));
     expect(within(d).getByText(/^Tercatat selesai pada/)).toBeInTheDocument();
     await userEvent.type(within(d).getByLabelText('Anggaran (Rp)'), '5000000');
-    await userEvent.type(within(d).getByLabelText('Sumber dana'), ' DAK ');
-    await userEvent.type(within(d).getByLabelText('Tahun target'), '2027');
+    await userEvent.type(within(d).getByLabelText('Sumber Dana'), ' DAK ');
+    await userEvent.type(within(d).getByLabelText('Tahun Target'), '2027');
     expect(d.querySelectorAll('#decision-fund-list option')).toHaveLength(2);
-    await userEvent.click(within(d).getByRole('button', { name: 'Simpan notulensi' }));
+    await userEvent.click(within(d).getByRole('button', { name: 'Simpan Notulensi' }));
     await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')?.body).toMatchObject({
       properties: { keputusan: 'Selesai', anggaran: 5000000, sumber_dana: 'DAK', tahun_target: 2027, tanggal_selesai: expect.any(String) },
     }));
@@ -55,9 +55,9 @@ describe('Lonceng peringatan', () => {
 
     // Dibuka lagi dari lonceng lalu Batal: param ?keputusan dibersihkan, dialog tertutup.
     await userEvent.click(within(await openBell()).getByRole('menuitem', { name: /Jl. Wates/ }));
-    const d2 = await screen.findByRole('dialog', { name: 'Notulensi & keputusan' });
+    const d2 = await screen.findByRole('dialog', { name: 'Notulensi & Keputusan' });
     await waitFor(() => expect(within(d2).getByLabelText('Anggaran (Rp)')).toHaveValue(5000000));
-    expect(within(d2).getByLabelText('Tahun target')).toHaveValue(2027);
+    expect(within(d2).getByLabelText('Tahun Target')).toHaveValue(2027);
     await userEvent.click(within(d2).getByRole('button', { name: 'Batal' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(window.location.search).toBe('');
@@ -114,9 +114,9 @@ describe('Keterpaparan: tanpa jenis gabungan di pengaturan, nilai nol', () => {
     let fail = true;
     mockApi({ 'GET /stats/exposure': () => (fail ? reply(500, { error: 'x' }) : []) });
     render(<QueryClientProvider client={createQueryClient()}><PrefsProvider><MemoryRouter><HazardExposure /></MemoryRouter></PrefsProvider></QueryClientProvider>);
-    const retry = await screen.findByRole('button', { name: 'Coba lagi' }, { timeout: 5000 });
+    const retry = await screen.findByRole('button', { name: 'Coba Lagi' }, { timeout: 5000 });
     fail = false;
     await userEvent.click(retry);
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Coba lagi' })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Coba Lagi' })).not.toBeInTheDocument());
   });
 });

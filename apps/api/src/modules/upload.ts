@@ -14,6 +14,7 @@ import { baseGeomType, geometrySchema, idParam } from '../lib/schemas.js';
 import { EDITORS, requireRole } from '../middleware/auth.js';
 import { removeFiles, takeMedia } from '../lib/media.js';
 import { audit } from './audit.js';
+import { NUMERIC } from '../lib/field-types.js';
 import { KECAMATAN_EXPR, validateProperties } from './features.js';
 import { assertWritable, getLayer, type Layer } from './layers.js';
 import { parseRuasSk } from '../db/parse.js';
@@ -126,7 +127,9 @@ export const normalizeFeatures = (features: ShpFeature[], geomType: string, laye
     if (layer) {
       for (const fd of layer.fields) {
         const v = properties[fd.key];
-        if (fd.type === 'number' && typeof v === 'string' && Number.isFinite(Number(v))) properties[fd.key] = Number(v);
+        // Kolom SHP/CSV sering bertipe teks: angka & ya/tidak dikoersi sesuai tipe field skema.
+        if (NUMERIC.includes(fd.type) && typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) properties[fd.key] = Number(v);
+        if (fd.type === 'boolean' && (typeof v === 'string' || typeof v === 'number') && /^(true|false|ya|tidak|1|0)$/i.test(String(v))) properties[fd.key] = /^(true|ya|1)$/i.test(String(v));
       }
       try {
         validateProperties(layer as Layer, properties as never, true);

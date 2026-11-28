@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { waitFor } from '@testing-library/react';
-import { parseFields } from '@/features/data/LayerDialog';
+import { keyOf, toFields } from '@/features/data/LayerDialog';
 import { can, canEdit } from '@/hooks/use-auth';
 import { api, ApiError, endpoints, refreshData } from '@/lib/api';
 import { QueryClient } from '@tanstack/react-query';
@@ -109,14 +109,14 @@ describe('layer-style', () => {
 });
 
 describe('parsers & auth helpers', () => {
-  it('parseFields', () => {
-    expect(parseFields('nama | Nama\n\njenis | Jenis | select | SD, SMP,\nluas||number\nx | X | aneh')).toEqual([
+  it('toFields', () => {
+    const o = (label: string, type = 'text', options: string[] = []) => ({ label, type: type as never, options });
+    expect(toFields([o('Nama'), o(''), o('Jenis Sekolah', 'select', ['SD', 'SMP']), o('nama'), o('2 Lantai', 'integer', ['x'])])).toEqual([
       { key: 'nama', label: 'Nama', type: 'text' },
-      { key: 'jenis', label: 'Jenis', type: 'select', options: ['SD', 'SMP'] },
-      { key: 'luas', label: '', type: 'number' },
-      { key: 'x', label: 'X', type: 'text' },
+      { key: 'jenis_sekolah', label: 'Jenis Sekolah', type: 'select', options: ['SD', 'SMP'] },
+      { key: 'f_2_lantai', label: '2 Lantai', type: 'integer' },
     ]);
-    expect(parseFields('kode')).toEqual([{ key: 'kode', label: 'kode', type: 'text' }]);
+    expect(keyOf('Luas (ha)')).toBe('luas_ha');
   });
 
   it('can / canEdit', () => {
@@ -177,6 +177,14 @@ describe('popupRows', () => {
     const poly = { style: { color: '#1', classField: 'pola_ruang' }, fields: [{ key: 'kelas' }, { key: 'pola_ruang' }] } as never;
     expect(popupRows(poly, { kelas: 'Sawah', pola_ruang: 'X', luas_ha: 3, keterangan: 'Y', kecamatan: 'Galur', kalurahan: 'Banaran' }).map(([k]) => k))
       .toEqual(['kelas', 'keterangan', 'kalurahan', 'kecamatan']);
+  });
+
+  it('Kelola Field: urutan skema dipakai, field tersembunyi & popup:false tidak tampil (juga tidak lewat jalur ekstra)', async () => {
+    const { popupRows } = await import('@/features/peta/PetaPage');
+    const { activeFields } = await import('@/lib/layer-style');
+    const layer = { style: { color: '#1' }, fields: [{ key: 'tema' }, { key: 'nama_lain', hidden: true }, { key: 'kode', popup: false }, { key: 'status' }] } as never;
+    expect(activeFields(layer).map((f: { key: string }) => f.key)).toEqual(['tema', 'kode', 'status']);
+    expect(popupRows(layer, { tema: 'A', nama_lain: 'B', kode: 'C', status: 'D', impor: 'E' }).map(([k]) => k)).toEqual(['tema', 'status', 'impor', 'kalurahan', 'kecamatan']);
   });
 });
 

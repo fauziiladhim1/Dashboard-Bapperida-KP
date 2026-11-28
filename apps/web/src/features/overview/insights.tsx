@@ -62,7 +62,7 @@ export function HazardExposure({ kecamatan }: { kecamatan?: string }) {
   const score = (r: Row) => COLS.reduce((s, c, i) => s + c.v(r) / max[i]!, 0);
   const each = [...others].sort((a, b) => score(b) - score(a));
   return (
-    <Panel icon={Shield} title={t('ins.exposure')} className="@container h-full">
+    <Panel icon={Shield} title={t('ins.exposure')} className="@container h-full" foot={!retryOf(q) && !q.isPending && rows.length > 0 && t('ins.exposureNote')}>
       {retryOf(q) ? <Empty retry={retryOf(q)} /> : q.isPending ? <span aria-busy className="skeleton block h-56 rounded-xl" /> : !rows.length ? <Empty /> : (
         <>
           {multi && (
@@ -129,7 +129,6 @@ export function HazardExposure({ kecamatan }: { kecamatan?: string }) {
               ))}
             </ul>
           </div>
-          <p className="mt-auto text-xs text-muted">{t('ins.exposureNote')}</p>
         </>
       )}
     </Panel>

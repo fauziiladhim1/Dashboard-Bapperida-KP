@@ -16,7 +16,7 @@ const MARKERS = [
 ];
 const click = (lng: number, lat: number) => act(() => fakeMap.fire('click', { point: { x: 1, y: 1 }, lngLat: { lng, lat } }));
 /** Panel penanda tertutup saat halaman dibuka: buka dulu lewat tombol mengambangnya. */
-const openPanel = async () => userEvent.click(await screen.findByRole('button', { name: 'Buka catatan rencana' }, { timeout: 5000 }));
+const openPanel = async () => userEvent.click(await screen.findByRole('button', { name: 'Buka Catatan Rencana' }, { timeout: 5000 }));
 const saved = { id: 50, properties: {}, geometry: null, updatedAt: '2026-11-25T00:00:00Z' };
 
 describe('Peta: alat gambar penanda lokasi', () => {
@@ -24,13 +24,13 @@ describe('Peta: alat gambar penanda lokasi', () => {
     mockApi({ 'GET /auth/me': { user: user('viewer') }, 'GET /layers': [...LAYERS, ...MARKERS], 'GET /stats/kecamatan': [] });
     const { unmount } = renderAt('/peta');
     await screen.findAllByText('Rencana Titik', {}, { timeout: 5000 });
-    expect(screen.queryByRole('group', { name: 'Alat gambar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Alat Gambar' })).not.toBeInTheDocument();
     unmount();
 
     mockApi({ 'GET /auth/me': { user: user('editor') }, 'GET /layers': LAYERS, 'GET /stats/kecamatan': [] });
     renderAt('/peta');
     await screen.findAllByText('PJU', {}, { timeout: 5000 });
-    expect(screen.queryByRole('group', { name: 'Alat gambar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Alat Gambar' })).not.toBeInTheDocument();
   });
 
   it('titik: batal, lalu satu klik peta (klik fitur diabaikan) membuka dialog berisi titik dan menyimpan', async () => {
@@ -40,12 +40,12 @@ describe('Peta: alat gambar penanda lokasi', () => {
     });
     renderAt('/peta');
     await openPanel();
-    await userEvent.click(await screen.findByRole('button', { name: 'Tandai titik' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Tandai Titik' }));
     expect(screen.getByText('Klik peta untuk menandai titik')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Batal' }));
     expect(screen.queryByText('Klik peta untuk menandai titik')).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Tandai titik' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Tandai Titik' }));
     await waitFor(() => expect(fakeMap.canvas.style.cursor).toBe('crosshair'));
     fakeMap.rendered = [{ source: 'src-jalan-kabupaten', layer: { id: 'line-jalan-kabupaten' }, id: 7, properties: {} }];
     click(110.2, -7.85);
@@ -66,13 +66,13 @@ describe('Peta: alat gambar penanda lokasi', () => {
     mockApi({ 'GET /auth/me': { user: user('editor') }, 'GET /layers': [...LAYERS, ...MARKERS], 'GET /stats/kecamatan': [] });
     renderAt('/peta');
     await openPanel();
-    await userEvent.click(await screen.findByRole('button', { name: 'Gambar poligon' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Gambar Poligon' }));
     const done = screen.getByRole('button', { name: 'Selesai' });
     expect(done).toBeDisabled();
     click(110, -7.8);
     click(110.1, -7.8);
     click(110.9, -7.1);
-    await userEvent.click(screen.getByRole('button', { name: 'Batalkan titik' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Batalkan Titik' }));
     expect(screen.getByText(/^2 titik/)).toBeInTheDocument();
     expect(done).toBeDisabled();
     click(110.1, -7.9);
@@ -85,7 +85,7 @@ describe('Peta: alat gambar penanda lokasi', () => {
     mockApi({ 'GET /auth/me': { user: user('editor') }, 'GET /layers': [...LAYERS, ...MARKERS], 'GET /stats/kecamatan': [] });
     renderAt('/peta');
     await openPanel();
-    await userEvent.click(await screen.findByRole('button', { name: 'Gambar garis' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Gambar Garis' }));
     click(110, -7.8);
     click(110.1, -7.9);
     await userEvent.click(screen.getByRole('button', { name: 'Selesai' }));
@@ -101,7 +101,7 @@ describe('Peta: alat gambar penanda lokasi', () => {
   };
 
   it('snap: klik dekat sudut objek data menempel tepat ke sudutnya; lingkar tempel tampil saat kursor mendekat', async () => {
-    await editorMap('Tandai titik');
+    await editorMap('Tandai Titik');
     // Tanpa layer data tampil: tidak ada yang bisa ditempeli.
     fakeMap.addLayer.mockClear();
     move(110.2005, -7.8504);
@@ -116,7 +116,7 @@ describe('Peta: alat gambar penanda lokasi', () => {
   });
 
   it('area: klik titik pertama menutup; titik yang memotong ditolak dengan pesan; Esc batal; alat ditekan lagi = batal', async () => {
-    await editorMap('Gambar poligon');
+    await editorMap('Gambar Poligon');
     expect(fakeMap.canvas.style.cursor).toBe('crosshair');
     move(110, -7.8); // belum ada titik: tanpa garis bantu
     click(110, -7.8);
@@ -131,7 +131,7 @@ describe('Peta: alat gambar penanda lokasi', () => {
   });
 
   it('keyboard: Backspace hapus titik, Enter selesai garis, Esc batal; area segaris diblokir', async () => {
-    await editorMap('Gambar poligon');
+    await editorMap('Gambar Poligon');
     click(110, -7.8); click(110.1, -7.8); click(110.2, -7.8);
     expect(screen.getByText('Area tidak sah: titik segaris')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Selesai' })).toBeDisabled();
@@ -147,18 +147,18 @@ describe('Peta: alat gambar penanda lokasi', () => {
     fireEvent.keyDown(document.body, { key: 'Escape' });
     expect(screen.queryByText(/^2 titik/)).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Gambar garis' }));
-    expect(screen.getByRole('button', { name: 'Gambar garis' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(screen.getByRole('button', { name: 'Gambar Garis' }));
+    expect(screen.getByRole('button', { name: 'Gambar Garis' })).toHaveAttribute('aria-pressed', 'true');
     click(110, -7.8); click(110.1, -7.9);
     click(110.1, -7.9); // klik ulang titik terakhir = selesai
     expect(await screen.findByDisplayValue('LINESTRING (110 -7.8, 110.1 -7.9)')).toBeInTheDocument();
   });
 
   it('Enter menyelesaikan garis; menekan alat aktif lagi membatalkan', async () => {
-    await editorMap('Gambar garis');
-    await userEvent.click(screen.getByRole('button', { name: 'Gambar garis' }));
+    await editorMap('Gambar Garis');
+    await userEvent.click(screen.getByRole('button', { name: 'Gambar Garis' }));
     expect(screen.queryByRole('button', { name: 'Selesai' })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Gambar garis' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Gambar Garis' }));
     click(110, -7.8); click(110.1, -7.9);
     fireEvent.keyDown(document.body, { key: 'Backspace' }); fireEvent.keyDown(document.body, { key: 'Backspace' }); fireEvent.keyDown(document.body, { key: 'Backspace' });
     click(110, -7.8); click(110.1, -7.9);
@@ -170,18 +170,18 @@ describe('Peta: alat gambar penanda lokasi', () => {
     mockApi({ 'GET /auth/me': { user: user('editor') }, 'GET /layers': [...LAYERS, ...MARKERS.map((l, i) => ({ ...l, featureCount: i + 1 }))], 'GET /stats/kecamatan': [] });
     renderAt('/peta');
     // Tertutup saat halaman dibuka; lencana tombolnya = jumlah semua penanda (1 + 2 + 3).
-    expect(screen.queryByRole('complementary', { name: 'Catatan rencana' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: 'Catatan Rencana' })).not.toBeInTheDocument();
     expect(await screen.findByText('6', {}, { timeout: 5000 })).toBeInTheDocument();
     await openPanel();
-    const panel = await screen.findByRole('complementary', { name: 'Catatan rencana' });
+    const panel = await screen.findByRole('complementary', { name: 'Catatan Rencana' });
     expect(within(panel).getByText('Min. 3 titik')).toBeInTheDocument();
     expect(within(panel).getByText('3 fitur')).toBeInTheDocument();
-    await userEvent.click(within(panel).getByRole('button', { name: 'Gambar garis' }));
+    await userEvent.click(within(panel).getByRole('button', { name: 'Gambar Garis' }));
     click(110, -7.8);
-    await userEvent.click(screen.getByRole('button', { name: 'Tutup catatan rencana' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Tutup Catatan Rencana' }));
     expect(fakeMap.canvas.style.cursor).toBe('');
     await openPanel();
-    expect(await screen.findByRole('button', { name: 'Gambar garis' })).toHaveAttribute('aria-pressed', 'false');
+    expect(await screen.findByRole('button', { name: 'Gambar Garis' })).toHaveAttribute('aria-pressed', 'false');
   });
 });
 

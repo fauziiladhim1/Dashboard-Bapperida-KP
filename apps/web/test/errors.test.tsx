@@ -20,8 +20,8 @@ describe('Halaman error', () => {
     renderAt('/tidak-ada');
     expect(await screen.findByRole('heading', { name: 'Titik ini tidak ada di peta' }, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByText('404')).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Navigasi utama' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Coba lagi/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Navigasi Utama' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Coba lagi/i })).not.toBeInTheDocument();
   });
 
   it('halaman crash -> 500, coba lagi merender ulang, pindah halaman mereset', async () => {
@@ -29,19 +29,19 @@ describe('Halaman error', () => {
     mockApi(routes);
     renderAt('/pengguna');
     expect(await screen.findByRole('heading', { name: 'Peta gagal dimuat' }, { timeout: 5000 })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: /Coba lagi/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Coba lagi/i }));
     expect(await screen.findByRole('heading', { name: 'Peta gagal dimuat' })).toBeInTheDocument();
 
     boom.on = false;
-    await userEvent.click(screen.getByRole('button', { name: /Coba lagi/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Coba lagi/i }));
     expect(await screen.findByText('halaman pengguna')).toBeInTheDocument();
 
     boom.on = true;
     await userEvent.click(screen.getAllByRole('link', { name: 'Ringkasan' })[0]!);
     await userEvent.click(screen.getAllByRole('link', { name: 'Pengguna' })[0]!);
     expect(await screen.findByRole('heading', { name: 'Peta gagal dimuat' })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('link', { name: /Kembali ke ringkasan/ }));
-    expect((await screen.findAllByText('Jumlah penduduk miskin', {}, { timeout: 12000 }))[0]).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('link', { name: /Kembali ke ringkasan/i }));
+    expect((await screen.findAllByText('Jumlah Penduduk Miskin', {}, { timeout: 12000 }))[0]).toBeInTheDocument();
   });
 });
 

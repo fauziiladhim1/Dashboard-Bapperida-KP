@@ -21,7 +21,7 @@ describe('Pagination: lompat halaman & jumlah baris', () => {
     const onChange = vi.fn();
     const onSize = vi.fn();
     bare(<Pagination page={2} pages={5} onChange={onChange} size={20} onSize={onSize} />);
-    const jump = screen.getByRole('spinbutton', { name: 'Lompat ke halaman (1–5)' });
+    const jump = screen.getByRole('spinbutton', { name: 'Lompat ke Halaman (1–5)' });
     await userEvent.type(jump, '4{Enter}');
     expect(onChange).toHaveBeenLastCalledWith(4);
     await userEvent.type(jump, '99');
@@ -41,7 +41,7 @@ describe('Pagination: lompat halaman & jumlah baris', () => {
   });
 });
 
-describe('Bentuk grafik dari data', () => {
+describe('Bentuk Grafik dari data', () => {
   it('pickChart: tahun = garis, kategori sedikit = donut, banyak/non-aditif = batang, kosong = angka', () => {
     expect(pickChart([])).toBe('number');
     expect(pickChart(['2024', '2025'])).toBe('line');
@@ -102,7 +102,7 @@ describe('VectorLayers: pemberitahuan memuat data', () => {
 
 describe('LayerDialog: warna dasar tidak kembar', () => {
   const ALL = ['#DE533C', '#D97706', '#16A34A', '#0F766E', '#2563EB', '#7C3AED', '#DB2777', '#475569'];
-  const swatches = () => document.querySelectorAll('[data-slot="color-swatch-picker-item"], .color-swatch-picker__item').length;
+  const swatches = () => document.querySelectorAll('[role="radio"][aria-label^="#"]').length;
   it('warna yang dipakai layer lain disembunyikan; semua terpakai = semua ditawarkan lagi', () => {
     const { unmount } = bare(<LayerDialog onClose={vi.fn()} onSaved={vi.fn()} used={['#de533c', '#2563EB']} />);
     expect(swatches()).toBe(6);

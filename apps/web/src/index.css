@@ -130,6 +130,13 @@
   }
   html {
     @apply font-sans antialiased;
+    /* Gulir ke jangkar/fokus berhenti di bawah topbar sticky 80px, bukan tertutup olehnya. */
+    scroll-padding-top: 5rem;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
   }
   body {
     /* overflow-x: clip, bukan hidden: `hidden` menjadikan body kontainer gulir sendiri saat menu/popover mengunci
@@ -308,6 +315,11 @@
     font-weight: 500;
     color: var(--heading);
   }
+  /* Judul bagian di dialog/form (Penilaian, Tambah Field, Ikon, ...): sama dengan label isian (14px medium, Title Case),
+     bukan overline kapital kecil, jadi satu dialog hanya punya dua ukuran teks: label 14px dan keterangan 12px. */
+  .section-title {
+    @apply text-sm font-medium text-heading;
+  }
   .card__description {
     color: var(--muted);
     font-weight: 300;
@@ -343,6 +355,14 @@
   .button--secondary:hover:not(:disabled) {
     background-color: var(--row-hover);
   }
+  /* Tersier (Batal, Kembalikan, ...) tanpa latar abu: hanya teks, rona tipis saat diarahkan. Form tetap putih bersih. */
+  .button--tertiary {
+    background-color: transparent;
+    color: var(--heading);
+  }
+  .button--tertiary:hover:not(:disabled) {
+    background-color: var(--row-hover);
+  }
   .input,
   .select__trigger,
   .search-field__group,
@@ -376,20 +396,54 @@
   }
   .popover,
   .dropdown__popover,
-  .select__popover {
+  .select__popover,
+  .date-picker__popover,
+  .date-range-picker__popover {
     border-radius: 0.75rem;
     box-shadow: var(--shadow-float);
     border: 0;
+  }
+  /* Sorot hover/terpilih item mengikuti bentuk popover: radius konsentris = radius popover (12px) − padding daftar
+     (`.list-box`/`.menu` p-1 = 4px) = 8px, bukan pil 16px bawaan HeroUI. Berlaku untuk Select, Dropdown, dan ComboBox. */
+  .list-box-item,
+  .menu-item {
+    border-radius: 0.5rem;
+  }
+  /* Kalender (DateInput, rentang tanggal Log): isi popover seperti dropdown, padding 8px, sel/tahun bersudut 8px dan
+     setebal item daftar (400), bukan pil 24px tebal bawaan HeroUI. */
+  .date-picker__popover,
+  .date-range-picker__popover {
+    padding: 0.5rem;
+  }
+  .calendar__cell,
+  .calendar__nav-button,
+  .range-calendar__nav-button,
+  .calendar-year-picker__year-cell {
+    border-radius: 0.5rem;
+    font-weight: 400;
+  }
+  .range-calendar__cell-button {
+    font-weight: 400;
+  }
+  .calendar__heading,
+  .calendar-year-picker__trigger-heading {
+    font-weight: 500;
+  }
+  /* Isi item menu (Ekspor, Layer, akun) setebal isi item Select (400), bukan Label medium bawaan: satu hierarki = satu berat. */
+  .menu-item .label {
+    font-weight: 400;
   }
   /* Daftar panjang digulir di dalam popover: tetap muat di bawah trigger, tidak dibalik ke atas menutupi filter/header.
      !important: react-aria menulis max-height inline dari sisa ruang layar, jadi tanpa ini tinggi tiap dropdown beda-beda
      (memanjang sampai tepi layar). Semua dropdown & select sama tinggi maksimum lalu digulir. */
   .dropdown__popover,
-  .select__popover {
+  .select__popover:not(.tall-popover) {
     max-height: min(18rem, 50dvh) !important;
     overflow-y: auto;
   }
-  /* Peringatan tindak lanjut: daftar berisi beberapa baris per item, jadi lebih tinggi; yang digulir hanya daftarnya. */
+  /* Peringatan tindak lanjut: daftar berisi beberapa baris per item, jadi lebih tinggi; yang digulir hanya daftarnya.
+     Pick `tall` (13 tipe field) tidak memakai batas paksa: react-aria membuka ke sisi yang lapang dan membatasi tinggi
+     sesuai ruang layar, jadi opsi tidak terpotong tepi layar (sisanya digulir di dalam popover). */
   .alert-popover.dropdown__popover {
     max-height: min(30rem, 70dvh) !important;
   }
@@ -471,6 +525,10 @@
   .data-table .table__column,
   .data-table .table__cell {
     padding-inline: 0.625rem;
+  }
+  /* Tabel atribut padat seperti QGIS: satu baris per fitur (isi panjang dipotong), padding vertikal 8px bukan 16px. */
+  .data-table .table__cell {
+    padding-block: 0.5rem;
   }
   /* Checkbox pilih baris di tengah kolomnya, sejajar dengan checkbox "pilih semua" di header. */
   .data-table .checkbox {

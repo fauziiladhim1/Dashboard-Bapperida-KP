@@ -40,9 +40,12 @@ export const statsRouter = (sql: Sql): Router => {
     const src = featuresSrc(sql, layer, tahun);
     const total = sum ? sql`round(${sql.unsafe(agg)}(nullif(f.properties->>${sum}, '')::numeric), 3)::float` : sql`NULL::float`;
     const key = by && !nogroup ? sql`f.properties->>${by}` : sql`NULL`;
-    // Layer multi-tahun dalam satu layer (atribut `tahun`, mis. penduduk miskin): `tahun` = hanya data tahun itu.
+    // Layer multi-tahun dalam satu layer (atribut `tahun`, mis. penduduk miskin): `tahun` = data tahun terakhir <= tahun itu,
+    // sama dengan kartu bawaan (tahun global 2026 tanpa data 2026 tetap menampilkan data 2025, bukan kartu kosong).
     const timed = tahun !== undefined && layer.year === null && layer.fields.some((f) => f.key === 'tahun');
-    const only = sql`${where && eq !== undefined ? sql`AND f.properties->>${where} = ${eq}` : sql``} ${timed ? sql`AND f.properties->>'tahun' = ${String(tahun)}` : sql``}`;
+    const lastYear = sql`(SELECT max((f.properties->>'tahun')::int)::text FROM features f
+      WHERE ${layerScope(sql, layer)} AND f.properties->>'tahun' ~ '^[0-9]{4}$' AND (f.properties->>'tahun')::int <= ${tahun ?? 0})`;
+    const only = sql`${where && eq !== undefined ? sql`AND f.properties->>${where} = ${eq}` : sql``} ${timed ? sql`AND f.properties->>'tahun' = ${lastYear}` : sql``}`;
     if (!kecamatan) {
       res.json(await sql<Row[]>`
         SELECT ${key} AS key, count(*)::int AS count,

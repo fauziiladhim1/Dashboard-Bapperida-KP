@@ -52,9 +52,9 @@ export function AppShell({ user }: { user: User }) {
     <RouterProvider navigate={(to) => navigate(to)} useHref={useHref}>
     <div className="min-h-dvh bg-background">
       {/* Topbar FreeDash: 80px, transparan, garis bawah tipis; area brand selebar sidebar dengan bayangan. */}
-      <header className="app-header sticky top-0 z-30 flex h-20 items-center border-b border-border bg-background/95 backdrop-blur-sm">
+      <header className="app-header sticky top-0 z-30 flex h-20 items-center border-b border-border bg-background/95">
         {/* Brand selebar sidebar + jarak 12px; tanpa latar agar tak menempel pada panel sidebar yang melayang. */}
-        <NavLink to="/" className={cn('hidden h-full shrink-0 items-center gap-3 overflow-hidden pl-3 transition-[width] duration-200 lg:flex',
+        <NavLink to="/" className={cn('hidden h-full shrink-0 items-center gap-3 overflow-hidden pl-3 transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] lg:flex',
           collapsed ? 'w-[92px] justify-center' : 'w-[272px] pl-9')}>
           <Logo size={38} />
           {!collapsed && (
@@ -104,16 +104,24 @@ export function AppShell({ user }: { user: User }) {
 
       {/* Sidebar melayang: 12px dari header, tepi kiri & bawah; sudut 20px seperti kartu dasbor.
           Bayangan sama dengan panel layer peta (shadow-float) agar terpisah jelas dari peta di belakangnya; tema gelap ditambah garis tepi tipis. */}
-      <aside className={cn('fixed top-[92px] bottom-3 left-3 z-20 hidden overflow-hidden rounded-[20px] bg-surface shadow-float transition-[width] duration-200 lg:block dark:ring-1 dark:ring-white/10', collapsed ? 'w-20' : 'w-[260px]')}>
-        <Sidebar user={user} onLogout={logout} collapsed={collapsed} />
-      </aside>
+      {/* Lebar panel tetap 260px; ringkas = clip-path memotong 180px dari kanan. Animasi clip-path hanya cat ulang,
+          tanpa hitung ulang layout per frame seperti animasi width. Bayangan lewat drop-shadow di pembungkus karena
+          box-shadow ikut terpotong clip-path. */}
+      <div className="fixed top-[92px] bottom-3 left-3 z-20 hidden w-[260px] [filter:drop-shadow(1px_1px_7px_rgb(0_0_0/0.1))] lg:block dark:[filter:drop-shadow(0_0_1px_rgb(255_255_255/0.25))]">
+        <aside className={cn('h-full overflow-hidden bg-surface transition-[clip-path] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+          collapsed ? '[clip-path:inset(0_180px_0_0_round_20px)]' : '[clip-path:inset(0_0_0_0_round_20px)]')}>
+          <div className={cn('h-full', collapsed && 'w-20')}>
+            <Sidebar user={user} onLogout={logout} collapsed={collapsed} />
+          </div>
+        </aside>
+      </div>
       {/* Tab perkecil/perbesar menempel di tepi kanan sidebar, tengah vertikal (seperti panel Google Maps).
           Di luar <aside> karena aside overflow-hidden; tengah sidebar = 50% + 40px (atas 92px, bawah 12px).
           Tanpa bayangan, warna sama dengan sidebar, dan menumpuk 1px di tepi sidebar agar tidak ada garis sambungan. */}
       <button type="button" onClick={toggleSidebar} aria-expanded={!collapsed} aria-label={t(collapsed ? 'nav.expand' : 'nav.collapse')}
         title={t(collapsed ? 'nav.expand' : 'nav.collapse')}
-        className={cn('fixed top-[calc(50%+40px)] z-20 hidden h-12 w-6 -translate-y-1/2 items-center justify-center rounded-r-lg bg-surface text-muted transition-[left,color] duration-200 hover:text-heading focus-visible:ring-2 focus-visible:ring-focus focus-visible:outline-none lg:flex',
-          collapsed ? 'left-[91px]' : 'left-[271px]')}>
+        className={cn('fixed top-[calc(50%+40px)] z-20 hidden h-12 w-6 -translate-y-1/2 items-center justify-center rounded-r-lg bg-surface text-muted left-[271px] transition-[translate,color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-heading focus-visible:ring-2 focus-visible:ring-focus focus-visible:outline-none lg:flex',
+          collapsed && '-translate-x-[180px]')}>
         {collapsed ? <ChevronRight className="size-4" aria-hidden /> : <ChevronLeft className="size-4" aria-hidden />}
       </button>
 
@@ -127,10 +135,13 @@ export function AppShell({ user }: { user: User }) {
 
       {/* --sidebar-offset = tepi kanan sidebar melayang (12px + lebar). Halaman biasa diberi padding sebesar itu;
           halaman penuh (peta) tidak: peta tetap tergambar di belakang sidebar, panel peta yang digeser. */}
-      <div className={cn('transition-[padding] duration-200', collapsed ? 'lg:[--sidebar-offset:92px]' : 'lg:[--sidebar-offset:272px]', !fullBleed && 'lg:pl-(--sidebar-offset)')}>
+      <div className={cn(collapsed ? 'lg:[--sidebar-offset:92px]' : 'lg:[--sidebar-offset:272px]', !fullBleed && 'lg:pl-(--sidebar-offset)')}>
         {/* min-h: footer mulai di bawah layar walau halaman lazy masih dimuat, agar tidak terdorong turun (CLS). 80px = tinggi topbar. */}
-        <main className={cn(!fullBleed && "mx-auto min-h-[calc(100dvh-80px)] w-full max-w-[1300px] p-4 md:p-6 lg:p-8")}>
-          <AnimatePresence mode="wait" initial={false}>
+        {/* Padding sidebar berubah seketika (satu kali reflow); layout="position" lalu menggeser konten dari posisi lama
+            dengan transform. Dulu padding dianimasikan, sehingga dasbor dan grafik dihitung ulang setiap frame. */}
+        <m.main layout="position" transition={{ duration: 0.3, ease: EASE }} className={cn(!fullBleed && "mx-auto min-h-[calc(100dvh-80px)] w-full max-w-[1300px] p-4 md:p-6 lg:p-8")}>
+          {/* Halaman lama selesai memudar baru gulir ke atas: halaman baru muncul dari puncak tanpa lompatan terlihat. */}
+          <AnimatePresence mode="wait" initial={false} onExitComplete={() => window.scrollTo({ top: 0, behavior: 'instant' })}>
             {/* Kunci per segmen pertama: /data/a -> /data/b tidak dianggap pindah halaman. */}
             <m.div key={pathname.split('/')[1]} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: EASE }}>
               {title && !fullBleed && <PageHeader title={t(title)} crumb={t(title)} />}
@@ -139,7 +150,7 @@ export function AppShell({ user }: { user: User }) {
               </ErrorBoundary>
             </m.div>
           </AnimatePresence>
-        </main>
+        </m.main>
         {!fullBleed && (
           <footer className="px-4 py-4 text-center text-sm text-muted">
             © {new Date().getFullYear()} {t('app.footer')}
